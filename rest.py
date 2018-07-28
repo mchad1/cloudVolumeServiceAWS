@@ -52,8 +52,8 @@ Index == the index within the higher level filesystem info dump, use this later 
 '''
 def add_volumes_to_fs_hash(json_object = None, index = None, mount = None, fs_hash = None):
     fs_hash[mount] = {}
-    fs_hash[mount]['FileSystemInfo'] = {'FileSystemId':json_object[index]['fileSystemId']}
-    fs_hash[mount]['index'] = {'index':index}
+    fs_hash[mount]['FileSystemId'] = json_object[index]['fileSystemId']
+    fs_hash[mount]['index'] = index
     return fs_hash
     
 
@@ -77,36 +77,35 @@ extract full volume info for those volumes, otherwise get info for all
 '''
 def extract_fs_info_for_vols_by_name(fs_hash = None, json_object = None):
     if fs_hash == None:
-        pretty_hash(json_object)
-    else:
-        for mount in fs_hash.keys():
-            pretty_hash(json_object[fs_hash[mount]['index']['index']])
-
-
-def extract_mount_target_info_for_vols_by_name(fs_hash = None, json_object = None, headers = None, url = None):
-    if fs_hash == None:
+        fs_hash = {}
         for index in range(0,len(json_object)):
             mount = json_object[index]['creationToken']
-            fsid = json_object[index]['FileSystemId']
-            add_mount_targets_to_fs_hash(fs_hash = fs_hash, fsid = fsid, headers = headers, mount = mount, url = url)
+            fs_hash[mount] = {}
+            fs_hash[mount]['index'] = index
+            add_fs_info_for_vols_by_name(fs_hash = fs_hash, json_object = json_object, mount = mount)
     else:
         for mount in fs_hash.keys():
-            fsid = fs_hash[mount]['FileSystemInfo']['FileSystemId']
-            add_mount_targets_to_fs_hash(fs_hash = fs_hash, fsid = fsid, headers = headers, mount = mount, url = url)
+            add_fs_info_for_vols_by_name(fs_hash = fs_hash, json_object = json_object, mount = mount)
     pretty_hash(fs_hash)
+
+def add_fs_info_for_vols_by_name(fs_hash = None, json_object = None, mount = None):
+    for attribute in json_object[fs_hash[mount]['index']].keys():
+       fs_hash[mount][attribute] = json_object[fs_hash[mount]['index']][attribute]
+    
+
 
 '''
 Add File system information to fs_hash, then pass hash back
 FilesystemInfo == hash containing filesysteminfo from SDK for a specific volume
 Index == the index within the higher level filesystem info dump, use this later on rather than having to crawl the json object
 '''
-def add_mount_targets_to_fs_hash(fs_hash = None, fsid = None, headers = None, mount = None, url = None):
-    try: 
-        status, fs_hash[mount]['MountTargets'].append( get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), headers = headers, url = url))
-    except:
-        status, fs_hash[mount]['MountTargets'] = get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), headers = headers, url = url)
-    return fs_hash
-
+def extract_mount_target_info_for_vols_by_name(fs_hash = None, json_object = None, headers = None, url = None):
+    for mount in fs_hash.keys():
+        fsid = fs_hash[mount]['FileSystemId']
+        status, mountargets = get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), headers = headers, url = url)
+        fs_hash[mount]['ipaddress'] = mountargets[0]['ipAddress']
+    pretty_hash(fs_hash)
+    #return fs_hash
 
 
 #MAIN
@@ -121,8 +120,8 @@ status, json_object = get_json_object(command = 'FileSystems', headers = headers
 error_check(status)
 
 #@# Map filesystem ids to names
-#fs_hash = create_export_to_fsid_hash(json_object = json_object)
-fs_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_object)
+fs_hash = create_export_to_fsid_hash(json_object = json_object)
+#fs_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_object)
 
 #@# print mount point to fsid map
 #pretty_hash(fs_hash)
@@ -130,13 +129,14 @@ fs_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-ser
 ''' 
 Custom commands
 '''
-#@# print info for all volumes, this is what happens if the fs_hash is empty
+#@# print and capture info for all volumes, this is what happens if the fs_hash is empty
 #extract_fs_info_for_vols_by_name(json_object = json_object)
 
-#@# print info for specific volumes
+#@# print and capture info for specific volumes
 extract_fs_info_for_vols_by_name(fs_hash = fs_hash, json_object = json_object)
                              
-#extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash, json_object = json_object, headers = headers, url = url)
+#@# print anc capture
+my_hash = extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash, json_object = json_object, headers = headers, url = url)
                              
 
 
