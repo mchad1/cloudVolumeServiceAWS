@@ -14,11 +14,15 @@ def command_line():
     if len(set(arg.values())) != 3:
         parser.print_help()
         exit()
-
     home = expanduser("~")
-    with open(home + '/aws_cvs_config','w') as config_file:
-        json.dump(arg,config_file)
-    print('Config File Created: %s/aws_cvs_config\n' % (home))
+    if arg['url'] and arg['secretkey'] and arg['apikey']:
+        if 'http' in arg['url']:
+            with open(home + '/aws_cvs_config','w') as config_file:
+                json.dump(arg,config_file)
+            print('Config File Created: %s/aws_cvs_config\n' % (home))
+        else:
+            print('Improper url specified, Bypassed creation of %s/aws_cvs_config\n' % (home))
+     
 
 command_line()
     

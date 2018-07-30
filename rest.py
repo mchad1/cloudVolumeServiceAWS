@@ -30,31 +30,20 @@ def command_line():
     group.add_argument('--volCreate',action='store_const',const=True,)
     group.add_argument('--volDelete',action='store_const',const=True,)
     group.add_argument('--volList', action='store_const',const=True,)
-    parser.add_argument('--volume','-v', type=str, help='Enter a volume name to search for' )
-    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring')
+    group.add_argument('--snapCreate',action='store_const',const=True,)
+    group.add_argument('--snapDelete',action='store_const',const=True,)
+    group.add_argument('--snapList', action='store_const',const=True,)
+    parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
+    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring.  Supports snapCreate, snapList and volList ')
+    parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, Supports snapCreate and volCreate')
+    parser.add_argument('--name','-n',type=str,help='Specify the object name to create.  Supports snapCreate and volCreate')
+    parser.add_argument('--count','-c',type=str,help='Specify the number of volumes to create.  Supports volCreate')
+    
 
     arg = vars(parser.parse_args())
-
-
-    '''if arg['volCreate'] and arg['volDelete'] and arg['volList']:
-        print('volCreate & volDelete & volList are mutually exclusive, select only one\n') 
-        sys.exit(1)
-    elif arg['volCreate'] and arg['volDelete']:
-        print('volCreate & volDelete are mutually exclusive, select only one\n') 
-        sys.exit(1)
-    elif arg['volCreate'] and arg['volList']:
-        print('volCreate & volDelete are mutually exclusive, select only one\n') 
-        sys.exit(1)
-    elif arg['volDelete'] and arg['volList']:
-        print('volCreate & volDelete are mutually exclusive, select only one\n') 
-        sys.exit(1)
-    elif not arg['volCreate'] and not arg['volDelete'] and not arg['volList']: 
-        print('Please select either volCreate, volDelete, or volList\n') 
-        sys.exit(1)'''
-        
     headers, url = config_parser()
     
-    if arg['volList']:
+    if arg['volList'] or arg['snapList'] or arg['snapCreate']:
         #@# Create full fs hash containing all info
         volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                                direction = 'GET',
@@ -75,9 +64,54 @@ def command_line():
                     fs_map_hash.pop(element)
         else: 
             fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
-        #@# print and capture info for specific volumes
-        vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
+
+        if arg['volList']:
+            #@# print and capture info for specific volumes
+            vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
+
+        if arg['snapList']:
+            #@# capture snapshot infor for volumes
+            snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
+
+            #@# Check for errors in base rest call
+            error_check(snapshot_status)
+
+            #@# print snapshots for selected volumes
+            snapshot_extract_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
+
+        if arg['snapCreate']:
+            if arg['name'] and arg['region']:
+                data = {'region':arg['region'],'name':arg['name']}
+                for volume in fs_map_hash.keys():
+                    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
+                                                                               data = data, 
+                                                                               direction = 'POST', 
+                                                                               headers = headers, 
+                                                                               url = url)
+                #@# Check for errors in base rest call
+                error_check(snapshot_status)
+            else:
+                print('\--name and --region must both be specified along with --snapCreate.\n')
+                exit()
+                
+        if arg['snapDelete']:
+            if arg['name'] and arg['region']:
+                data = {'region':arg['region'],'name':arg['name']}
+                for volume in fs_map_hash.keys():
+                    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
+                                                                               data = data, 
+                                                                               direction = 'POST', 
+                                                                               headers = headers, 
+                                                                               url = url)
+                #@# Check for errors in base rest call
+                error_check(snapshot_status)
+            else:
+                print('\--name and --region must both be specified along with --snapCreate.\n')
+                exit()
+            
     exit()       
+
+    
  
 
 #############
@@ -337,10 +371,4 @@ elif [[ $1 == "jobs" ]]; then
 elif [[ $1 == "backups" ]]; then
     curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Backups | jq '.'
 
-#create Snapshots
-elif [[ $1 == "create-snapshot" ]]; then
-    echo curl -s -H accept:application/json -H \"Content-type: application/json\" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X POST https://cds-aws-bundles.netapp.com:8080/v1/FileSystems/$2/Snapshots -d \'{\"name\": \"$3\",\"region\":\"us-east\"}\' > /tmp/$$.ksh
-    chmod 777 /tmp/$$.ksh
-    /tmp/$$.ksh
-fi
 '''
