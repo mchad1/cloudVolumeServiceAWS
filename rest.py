@@ -2,6 +2,9 @@
 import requests
 import json
 import logging
+from configobj import ConfigObj
+
+
 
 url = 'https://cds-aws-bundles.netapp.com:8080/v1'
 headers = {'content-type':'application/json',
@@ -13,15 +16,18 @@ headers = {'content-type':'application/json',
 '''
 Get the the json object for working with again and again
 '''
-def get_json_object( command = None, direction = None, headers = None, url = None):
-    r = requests.get(url + '/' + command,headers=headers)
+def submit_api_request( command = None, data = None, direction = None, headers = None, url = None):
+    if direction == 'GET':
+        r = requests.get(url + '/' + command, headers = headers)
+    elif direction == 'POST':
+        r = requests.post(url + '/' + command, data = json.dumps(data), headers = headers)
     return r.status_code,r.json()
 
 '''
 For now exit if error code != 200
 '''
 def error_check(status_code = None): 
-    if status_code != 200:
+    if status_code < 200 or status_code >= 300:
         print('Something went wrong with API request, Error Code: %s' % (status_code))
         exit()
 
@@ -31,7 +37,7 @@ key == export name
 value == [filesystem id, index position inside base json object]
 return == hash of export names : [filesystem id, index position]
 '''
-def create_export_to_fsid_hash(filesystems=None,json_object=None):
+def create_export_to_fsid_hash(filesystems = None, json_object = None):
     fs_map_hash = {}
     if filesystems is not None:
         for mount in filesystems:
@@ -52,7 +58,7 @@ Index == the index within the higher level filesystem info dump, use this later 
 '''
 def add_volumes_to_fs_hash(json_object = None, index = None, mount = None, fs_map_hash = None):
     fs_map_hash[mount] = {}
-    fs_map_hash[mount]['FileSystemId'] = json_object[index]['fileSystemId']
+    fs_map_hash[mount]['fileSystemId'] = json_object[index]['fileSystemId']
     fs_map_hash[mount]['index'] = index
     
 
@@ -97,10 +103,10 @@ Index == the index within the higher level filesystem info dump, use this later 
 def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object = None, headers = None, url = None):
     mount_hash = {}
     for mount in fs_map_hash.keys():
-        fsid = fs_map_hash[mount]['FileSystemId']
+        fsid = fs_map_hash[mount]['fileSystemId']
         mount_hash[mount] = {}
         mount_hash[mount]['fileSystemId'] = fsid
-        status, json_mountarget_object = get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), direction = 'GET', headers = headers, url = url)
+        status, json_mountarget_object = submit_api_request(command = ('FileSystems/%s/MountTargets' % (fsid)), direction = 'GET', headers = headers, url = url)
         error_check(status)
         mount_hash[mount]['ipaddress'] = json_mountarget_object[0]['ipAddress']
     pretty_hash(mount_hash)
@@ -110,17 +116,39 @@ def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object =
 #############
 # Snapshot Code
 
-def extract_snapshot_info(fs_map_hash = None, snap_hash = None):
+'''
+Extract snapshots for the listed volumes,
+pretty print the output if any,
+return the output in form as follows
+{
+    "volume": {
+        "fileSystemId": "75a59fcc-7254-2f32-ba7c-c790b469bc48",
+        "snapshots": [
+            {
+                "name": "snappy",
+                "snapshotId": "bdb723bf-5d72-5e95-b4ef-bb0d0e24ce72",
+                "usedBytes": 136
+            }
+        ]
+    }
+}
+'''
+def snapshot_extract_info(fs_map_hash = None, snap_hash = None):
     fs_snap_hash = {}
     for mount in fs_map_hash.keys():
-        fs_snap_hash[mount] = {'snapshots':{}}
-        fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['FileSystemId']
         for index in range(0,len(snap_hash)):
-            print snap_hash[index]['fileSystemId']
             if snap_hash[index]['fileSystemId'] == fs_map_hash[mount]['fileSystemId']:
-                fs_snap_hash[mount]['snapshots'][snap_hash[index]['snapshotId']] = {'name':snap_hash[index]['name'],'usedBytes':snap_hash[index]['usedBytes']}
-    pretty_hash(fs_snap_hash)
-    return fs_snap_hash
+                if mount not in fs_snap_hash:
+                    fs_snap_hash[mount] = {}
+                    fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['fileSystemId']
+                    fs_snap_hash[mount]['snapshots'] = []
+                fs_snap_hash[mount]['snapshots'].append({'name':snap_hash[index]['name'],
+                                                         'snapshotId':snap_hash[index]['snapshotId'],
+                                                         'usedBytes':snap_hash[index]['usedBytes']})
+    if len(fs_snap_hash) > 0:
+        pretty_hash(fs_snap_hash)
+        return fs_snap_hash
+
 
 
 #MAIN
@@ -129,14 +157,17 @@ def extract_snapshot_info(fs_map_hash = None, snap_hash = None):
 Required Commands
 '''
 #@# Create full fs hash containing all info
-volume_status, json_volume_object = get_json_object(command = 'FileSystems', direction = 'GET', headers = headers, url = url)
+volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
+                                                       direction = 'GET',
+                                                       headers = headers,
+                                                       url = url)
 
 #@# Check for errors in base rest call
 error_check(volume_status)
 
 #@# Map filesystem ids to names
-fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
-#fs_map_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_object)
+#fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+fs_map_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_volume_object)
 
 #@# print mount point to fsid map
 #pretty_hash(fs_map_hash)
@@ -157,32 +188,29 @@ Main Mount Targets
 MAIN Snapshots
 '''
 #@# capture snapshot infor for volumes
-snapshot_status, json_snapshot_object = get_json_object(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
+snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
 
 #@# Check for errors in base rest call
 error_check(snapshot_status)
 
-#@# print mount point to fsid map
-extract_snapshot_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
+#@# print snapshots for selected volumes
+snapshot_extract_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
 
+#@# create snapshots
+data = {'region':'us-east','name':'us-east'}
+for volume in fs_map_hash.keys():
+    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
+                                                               data = data, 
+                                                               direction = 'POST', 
+                                                               headers = headers, 
+                                                               url = url)
+    #@# Check for errors in base rest call
+    error_check(snapshot_status)
 
-
-                             
-
-
-           
-
+#'''
+#data = {'name':'sn1', 'region':'us-east'}
 
 '''
-#Capture all File Systems
-if [[ $1 == "allfs" ]]; then
-#    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/FileSystems  | jq '.'
-    curl -s -H accept:application/json 
-            -H "Content-type: application/json" 
-            -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk 
-            -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE 
-            -X GET https://cds-aws-bundles.netapp.com:8080/v1/FileSystems  | jq '.'
-
     curl -s -H accept:application/json 
             -H \"Content-type: application/json\" 
             -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk 
@@ -236,10 +264,6 @@ elif [[ $1 == "jobs" ]]; then
 #View Backups
 elif [[ $1 == "backups" ]]; then
     curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Backups | jq '.'
-
-#View Snapshots
-elif [[ $1 == "all-snapshots" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Snapshots | jq '.'
 
 #create Snapshots
 elif [[ $1 == "create-snapshot" ]]; then
