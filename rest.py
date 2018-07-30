@@ -26,15 +26,59 @@ def config_parser():
 
 def command_line():
     parser = argparse.ArgumentParser(prog='cloudvolumes.py',description='%(prog)s is used to issue api calls on your behalf')
-    parser.add_argument('--url','-u',   action='store_const', const='https://cds-aws-bundles.netapp.com:8080/v1', help='Enter an alternative url for the cloud volumes api service only if neccessary')
-    parser.add_argument('--secretkey','-s', type=str, help='Unless stored in config file, Enter the cloud volumes secret-key')
-    parser.add_argument('--apikey','-a', type=str, help='Unless stored in the config file, Enter the cloud volumes api-key')
-    parser.add_argument('--configfile','-c', type=str, help='command config file')
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('--volCreate',action='store_const',const=True,)
+    group.add_argument('--volDelete',action='store_const',const=True,)
+    group.add_argument('--volList', action='store_const',const=True,)
+    parser.add_argument('--volume','-v', type=str, help='Enter a volume name to search for' )
+    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring')
+
     arg = vars(parser.parse_args())
-    if len(set(arg.values())) == 1:
-        parser.print_help()
+
+
+    '''if arg['volCreate'] and arg['volDelete'] and arg['volList']:
+        print('volCreate & volDelete & volList are mutually exclusive, select only one\n') 
         sys.exit(1)
-    return arg
+    elif arg['volCreate'] and arg['volDelete']:
+        print('volCreate & volDelete are mutually exclusive, select only one\n') 
+        sys.exit(1)
+    elif arg['volCreate'] and arg['volList']:
+        print('volCreate & volDelete are mutually exclusive, select only one\n') 
+        sys.exit(1)
+    elif arg['volDelete'] and arg['volList']:
+        print('volCreate & volDelete are mutually exclusive, select only one\n') 
+        sys.exit(1)
+    elif not arg['volCreate'] and not arg['volDelete'] and not arg['volList']: 
+        print('Please select either volCreate, volDelete, or volList\n') 
+        sys.exit(1)'''
+        
+    headers, url = config_parser()
+    
+    if arg['volList']:
+        #@# Create full fs hash containing all info
+        volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
+                                                               direction = 'GET',
+                                                               headers = headers,
+                                                               url = url)
+        
+        #@# Check for errors in base rest call
+        error_check(volume_status)
+
+        #@# Map filesystem ids to names
+        #fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+        if arg['volume'] and not arg['pattern']:
+            fs_map_hash = create_export_to_fsid_hash(filesystems = [arg['volume']], json_object = json_volume_object)
+        elif arg['volume'] and arg['pattern']:
+            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+            for element in fs_map_hash.keys():
+                if arg['volume'] not in element:
+                    fs_map_hash.pop(element)
+        else: 
+            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+        #@# print and capture info for specific volumes
+        vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
+    exit()       
+ 
 
 #############
 # Primary Code #
@@ -182,7 +226,7 @@ def snapshot_extract_info(fs_map_hash = None, snap_hash = None):
 Required Commands
 '''
 #Extract url and headers
-headers, url = config_parser()
+command_line()
 
 #@# Create full fs hash containing all info
 volume_status, json_volume_object = submit_api_request(command = 'FileSystems',

@@ -13,6 +13,7 @@ def command_line():
     arg = vars(parser.parse_args())
     if len(set(arg.values())) != 3:
         parser.print_help()
+        exit()
 
     home = expanduser("~")
     with open(home + '/aws_cvs_config','w') as config_file:
