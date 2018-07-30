@@ -1,15 +1,40 @@
 #!/usr/bin/python
-import requests
+import argparse
 import json
 import logging
+import os
+import requests
+import sys
 from configobj import ConfigObj
+from os.path import expanduser
 
 
+def config_parser():
+    home = expanduser("~")
+    if os.path.exists(home + '/aws_cvs_config'):
+        with open(home + '/aws_cvs_config','r') as config_file:
+            temp = json.load(config_file)
+        headers = {}
+        headers['api-key'] = temp['apikey']
+        headers['secret-key'] = temp['secretkey']
+        headers['content-type'] = 'application/json'
+        url = temp['url']
+        return headers, url
+    else:
+        print('\aws_cvs_config not found, please run cvs_keys.py before proceeding\n')
+        exit()
 
-url = 'https://cds-aws-bundles.netapp.com:8080/v1'
-headers = {'content-type':'application/json',
-           'api-key':'b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk',
-           'secret-key':'NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE'}
+def command_line():
+    parser = argparse.ArgumentParser(prog='cloudvolumes.py',description='%(prog)s is used to issue api calls on your behalf')
+    parser.add_argument('--url','-u',   action='store_const', const='https://cds-aws-bundles.netapp.com:8080/v1', help='Enter an alternative url for the cloud volumes api service only if neccessary')
+    parser.add_argument('--secretkey','-s', type=str, help='Unless stored in config file, Enter the cloud volumes secret-key')
+    parser.add_argument('--apikey','-a', type=str, help='Unless stored in the config file, Enter the cloud volumes api-key')
+    parser.add_argument('--configfile','-c', type=str, help='command config file')
+    arg = vars(parser.parse_args())
+    if len(set(arg.values())) == 1:
+        parser.print_help()
+        sys.exit(1)
+    return arg
 
 #############
 # Primary Code #
@@ -156,6 +181,9 @@ def snapshot_extract_info(fs_map_hash = None, snap_hash = None):
 '''
 Required Commands
 '''
+#Extract url and headers
+headers, url = config_parser()
+
 #@# Create full fs hash containing all info
 volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                        direction = 'GET',
@@ -170,7 +198,7 @@ error_check(volume_status)
 fs_map_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_volume_object)
 
 #@# print mount point to fsid map
-#pretty_hash(fs_map_hash)
+pretty_hash(fs_map_hash)
 
 ''' 
 Main Volumes
