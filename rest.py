@@ -13,7 +13,7 @@ headers = {'content-type':'application/json',
 '''
 Get the the json object for working with again and again
 '''
-def get_json_object( command = None, headers = None, mount = None, url = None):
+def get_json_object( command = None, direction = None, headers = None, url = None):
     r = requests.get(url + '/' + command,headers=headers)
     return r.status_code,r.json()
 
@@ -100,11 +100,27 @@ def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object =
         fsid = fs_map_hash[mount]['FileSystemId']
         mount_hash[mount] = {}
         mount_hash[mount]['fileSystemId'] = fsid
-        status, mountargets = get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), headers = headers, url = url)
+        status, json_mountarget_object = get_json_object(command = ('FileSystems/%s/MountTargets' % (fsid)), direction = 'GET', headers = headers, url = url)
         error_check(status)
-        mount_hash[mount]['ipaddress'] = mountargets[0]['ipAddress']
+        mount_hash[mount]['ipaddress'] = json_mountarget_object[0]['ipAddress']
     pretty_hash(mount_hash)
     return mount_hash
+
+
+#############
+# Snapshot Code
+
+def extract_snapshot_info(fs_map_hash = None, snap_hash = None):
+    fs_snap_hash = {}
+    for mount in fs_map_hash.keys():
+        fs_snap_hash[mount] = {'snapshots':{}}
+        fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['FileSystemId']
+        for index in range(0,len(snap_hash)):
+            print snap_hash[index]['fileSystemId']
+            if snap_hash[index]['fileSystemId'] == fs_map_hash[mount]['fileSystemId']:
+                fs_snap_hash[mount]['snapshots'][snap_hash[index]['snapshotId']] = {'name':snap_hash[index]['name'],'usedBytes':snap_hash[index]['usedBytes']}
+    pretty_hash(fs_snap_hash)
+    return fs_snap_hash
 
 
 #MAIN
@@ -113,26 +129,44 @@ def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object =
 Required Commands
 '''
 #@# Create full fs hash containing all info
-status, json_object = get_json_object(command = 'FileSystems', headers = headers, url = url)
+volume_status, json_volume_object = get_json_object(command = 'FileSystems', direction = 'GET', headers = headers, url = url)
 
 #@# Check for errors in base rest call
-error_check(status)
+error_check(volume_status)
 
 #@# Map filesystem ids to names
-fs_map_hash = create_export_to_fsid_hash(json_object = json_object)
+fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
 #fs_map_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_object)
 
 #@# print mount point to fsid map
-#pretty_hash(fs_hash)
+#pretty_hash(fs_map_hash)
 
 ''' 
-Custom commands
+Main Volumes
 '''
 #@# print and capture info for specific volumes
-vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_object)
-                             
+#vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
+
+'''
+Main Mount Targets
+'''
 #@# print anc capture ip addresses for volumes
-mount_hash = extract_mount_target_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_object, headers = headers, url = url)
+#mount_hash = extract_mount_target_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object, headers = headers, url = url)
+
+'''
+MAIN Snapshots
+'''
+#@# capture snapshot infor for volumes
+snapshot_status, json_snapshot_object = get_json_object(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
+
+#@# Check for errors in base rest call
+error_check(snapshot_status)
+
+#@# print mount point to fsid map
+extract_snapshot_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
+
+
+
                              
 
 
