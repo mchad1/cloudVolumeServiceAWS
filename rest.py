@@ -43,7 +43,7 @@ def command_line():
     arg = vars(parser.parse_args())
     headers, url = config_parser()
     
-    if arg['volList'] or arg['snapList'] or arg['snapCreate'] or arg['snapDelete']:
+    if arg['volList'] or arg['snapList'] or arg['snapCreate'] or arg['snapDelete'] or arg['volDelete']:
         #@# Create full fs hash containing all info
         volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                                direction = 'GET',
@@ -70,7 +70,24 @@ def command_line():
             vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
                                                         json_object = json_volume_object)
 
-        if arg['snapList']:
+        elif arg['volDelete']:
+            if arg['volume'] and not arg['pattern']:
+                #@# Delete specific volumes
+                for volume in fs_map_hash.keys():
+                    fileSystemId = fs_map_hash[volume]['fileSystemId']
+                    command = 'FileSystems/' + fileSystemId
+                    volume_status, json_volume_delete_object = submit_api_request(command = command,
+                                                                                  direction = 'DELETE', 
+                                                                                  headers = headers, 
+                                                                                  url = url)
+                    error_check(volume_status)
+                    print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s\n' % (volume,fileSystemId))
+            else:
+                print('\nvolumeDelete requires use of --volume with a single volume name and fobids the use of --pattern\n')
+                exit()
+        
+
+        elif arg['snapList']:
             #@# capture snapshot infor for volumes
             snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', 
                                                                        direction = 'GET',
@@ -83,7 +100,7 @@ def command_line():
             #@# print snapshots for selected volumes
             snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
 
-        if arg['snapCreate']:
+        elif arg['snapCreate']:
             if arg['name'] and arg['region']:
                 data = {'region':arg['region'],'name':arg['name']}
                 for volume in fs_map_hash.keys():
@@ -96,10 +113,10 @@ def command_line():
                 #@# Check for errors in base rest call
                 error_check(snapshot_status)
             else:
-                print('\--name and --region must both be specified along with --snapCreate.\n')
+                print('\n--name and --region must both be specified along with --snapCreate.\n')
                 exit()
                 
-        if arg['snapDelete']:
+        elif arg['snapDelete']:
             if arg['name']:
                 #@# capture snapshot info for volumes
                 snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
@@ -129,10 +146,10 @@ def command_line():
                                                                                        url = url)
                             
                             #@# Check for errors in base rest call
-                            print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
                             error_check(snapshot_status)
+                            print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
             else:
-                print('\--name and --region must both be specified along with --snapCreate.\n')
+                print('\n--name must both be specified along with --snapDelete.\n')
                 exit()
             
     exit()       
@@ -273,9 +290,8 @@ def snapshot_extract_info(fs_map_hash = None, prettify = None, snap_hash = None)
                     fs_snap_hash[mount] = {}
                     fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['fileSystemId']
                     fs_snap_hash[mount]['snapshots'] = []
-                fs_snap_hash[mount]['snapshots'].append({'name':snap_hash[index]['name'],
-                                                         'snapshotId':snap_hash[index]['snapshotId'],
-                                                         'usedBytes':snap_hash[index]['usedBytes']})
+                fs_snap_hash[mount]['snapshots'].append(snap_hash[index])
+
     if len(fs_snap_hash) > 0:
         if prettify: 
             pretty_hash(fs_snap_hash)
