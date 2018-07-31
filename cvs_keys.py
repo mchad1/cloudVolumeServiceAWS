@@ -25,11 +25,3 @@ def command_line():
      
 
 command_line()
-    
-    
-'''
-url = 'https://cds-aws-bundles.netapp.com:8080/v1'
-headers = {'content-type':'application/json',
-           'api-key':'b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk',
-           'secret-key':'NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE'}
-'''

@@ -34,7 +34,7 @@ def command_line():
     group.add_argument('--snapDelete',action='store_const',const=True,)
     group.add_argument('--snapList', action='store_const',const=True,)
     parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
-    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring.  Supports snapCreate, snapList and volList ')
+    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring.  Supports snap* and volList ')
     parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, Supports snapCreate and volCreate')
     parser.add_argument('--name','-n',type=str,help='Specify the object name to create.  Supports snapCreate and volCreate')
     parser.add_argument('--count','-c',type=str,help='Specify the number of volumes to create.  Supports volCreate')
@@ -43,7 +43,7 @@ def command_line():
     arg = vars(parser.parse_args())
     headers, url = config_parser()
     
-    if arg['volList'] or arg['snapList'] or arg['snapCreate']:
+    if arg['volList'] or arg['snapList'] or arg['snapCreate'] or arg['snapDelete']:
         #@# Create full fs hash containing all info
         volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                                direction = 'GET',
@@ -67,23 +67,28 @@ def command_line():
 
         if arg['volList']:
             #@# print and capture info for specific volumes
-            vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
+            vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
+                                                        json_object = json_volume_object)
 
         if arg['snapList']:
             #@# capture snapshot infor for volumes
-            snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
+            snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', 
+                                                                       direction = 'GET',
+                                                                       headers = headers, 
+                                                                       url = url)
 
             #@# Check for errors in base rest call
             error_check(snapshot_status)
 
             #@# print snapshots for selected volumes
-            snapshot_extract_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
+            snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
 
         if arg['snapCreate']:
             if arg['name'] and arg['region']:
                 data = {'region':arg['region'],'name':arg['name']}
                 for volume in fs_map_hash.keys():
-                    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
+                    command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots'
+                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
                                                                                data = data, 
                                                                                direction = 'POST', 
                                                                                headers = headers, 
@@ -95,16 +100,37 @@ def command_line():
                 exit()
                 
         if arg['snapDelete']:
-            if arg['name'] and arg['region']:
-                data = {'region':arg['region'],'name':arg['name']}
-                for volume in fs_map_hash.keys():
-                    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
-                                                                               data = data, 
-                                                                               direction = 'POST', 
-                                                                               headers = headers, 
-                                                                               url = url)
+            if arg['name']:
+                #@# capture snapshot info for volumes
+                snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
+                                                                           direction = 'GET',
+                                                                           headers = headers,
+                                                                           url = url)
+
                 #@# Check for errors in base rest call
                 error_check(snapshot_status)
+    
+                #@# print snapshots for selected volumes based on volume name
+                fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
+                                                     prettify = False,
+                                                     snap_hash = json_snapshot_object)
+                
+
+                for volume in fs_snap_hash.keys():
+                    for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                        if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                            snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                            fileSystemId = fs_map_hash[volume]['fileSystemId']
+                            command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
+                             
+                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                       direction = 'DELETE',
+                                                                                       headers = headers,
+                                                                                       url = url)
+                            
+                            #@# Check for errors in base rest call
+                            print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                            error_check(snapshot_status)
             else:
                 print('\--name and --region must both be specified along with --snapCreate.\n')
                 exit()
@@ -124,6 +150,8 @@ def submit_api_request( command = None, data = None, direction = None, headers =
         r = requests.get(url + '/' + command, headers = headers)
     elif direction == 'POST':
         r = requests.post(url + '/' + command, data = json.dumps(data), headers = headers)
+    elif direction == 'DELETE':
+        r = requests.delete(url + '/' + command, headers = headers)
     return r.status_code,r.json()
 
 '''
@@ -236,7 +264,7 @@ return the output in form as follows
     }
 }
 '''
-def snapshot_extract_info(fs_map_hash = None, snap_hash = None):
+def snapshot_extract_info(fs_map_hash = None, prettify = None, snap_hash = None):
     fs_snap_hash = {}
     for mount in fs_map_hash.keys():
         for index in range(0,len(snap_hash)):
@@ -249,7 +277,8 @@ def snapshot_extract_info(fs_map_hash = None, snap_hash = None):
                                                          'snapshotId':snap_hash[index]['snapshotId'],
                                                          'usedBytes':snap_hash[index]['usedBytes']})
     if len(fs_snap_hash) > 0:
-        pretty_hash(fs_snap_hash)
+        if prettify: 
+            pretty_hash(fs_snap_hash)
         return fs_snap_hash
 
 
@@ -300,7 +329,7 @@ snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots'
 error_check(snapshot_status)
 
 #@# print snapshots for selected volumes
-snapshot_extract_info(fs_map_hash = fs_map_hash, snap_hash = json_snapshot_object)
+snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
 
 #@# create snapshots
 data = {'region':'us-east','name':'us-east'}
