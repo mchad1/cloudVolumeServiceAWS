@@ -1,11 +1,8 @@
 #!/usr/bin/python
 import argparse
 import json
-import logging
 import os
 import requests
-import sys
-from configobj import ConfigObj
 from os.path import expanduser
 
 
@@ -33,8 +30,12 @@ def command_line():
     group.add_argument('--snapCreate',action='store_const',const=True,)
     group.add_argument('--snapDelete',action='store_const',const=True,)
     group.add_argument('--snapList', action='store_const',const=True,)
+    parser.add_argument('--Force', action='store_const',const=True,help='If specfied, substring\'s may be used along with Delete\
+                                                                         operations. Supports all *Delete operations.')
+    parser.add_argument('--pattern','-p',action='store_const',const=True,help='Search for volumes using name as substring.\
+                                                                               Supports snapList and volList nativley, snapDelete\
+                                                                               and volDelete with --Force.\n\n')
     parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
-    parser.add_argument('--pattern','-p',action='store_const',const=True,help='If --pattern, search for all volumes with the name as a substring.  Supports snap* and volList ')
     parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, Supports snapCreate and volCreate')
     parser.add_argument('--name','-n',type=str,help='Specify the object name to create.  Supports snapCreate and volCreate')
     parser.add_argument('--count','-c',type=str,help='Specify the number of volumes to create.  Supports volCreate')
@@ -69,9 +70,26 @@ def command_line():
             #@# print and capture info for specific volumes
             vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
                                                         json_object = json_volume_object)
+        #'''
+        #elif arg['volCreate']:
+        #    FileSystems -d \'{\"name\": \"$2\",
+        #                      \"creationToken\":\"$3\",
+        #                      \"region\":\"us-east\",
+        #                      \"serviceLevel\":\"$4\",
+        #                      \"quotaInBytes\":$5,
+        #                      \"exportPolicy\":{\"rules\":[{\"ruleIndex\": 1,
+        #                                        \"allowedClients\":\"0.0.0.0/0\",
+        #                                        \"unixReadOnly\":false,
+        #                                        \"unixReadWrite\": true,
+        #                                        \"cifs\": false, 
+        #                                        \"nfsv3\":true,
+        #                                        \"nfsv4\":false}]},
+        #                      \"labels\":[\"$6\"]}\'
+        #'''
 
+        #Volume delete does not support pattern matching or empty sets, a volume name must be entered
         elif arg['volDelete']:
-            if arg['volume'] and not arg['pattern']:
+            if arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force']:
                 #@# Delete specific volumes
                 for volume in fs_map_hash.keys():
                     fileSystemId = fs_map_hash[volume]['fileSystemId']
@@ -81,10 +99,12 @@ def command_line():
                                                                                   headers = headers, 
                                                                                   url = url)
                     error_check(volume_status)
-                    print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s\n' % (volume,fileSystemId))
+                    print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
             else:
-                print('\nvolumeDelete requires use of --volume with a single volume name and fobids the use of --pattern\n')
-                exit()
+                print('\nvolumeDelete requires use of --volume with a single volume name, --pattern is only supported along with --Force\n')
+                print('\nThe volDelete command resulted in an error. The following volume deletion options are supported:\
+                                                                               \n\t--name X --volume <volume>\t\t\t#Delete volume X\
+                                                                               \n\t--name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X\n')
         
 
         elif arg['snapList']:
@@ -110,47 +130,52 @@ def command_line():
                                                                                direction = 'POST', 
                                                                                headers = headers, 
                                                                                url = url)
-                #@# Check for errors in base rest call
-                error_check(snapshot_status)
+                    #@# Check for errors in base rest call
+                    error_check(snapshot_status)
+                    print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
             else:
                 print('\n--name and --region must both be specified along with --snapCreate.\n')
                 exit()
                 
         elif arg['snapDelete']:
             if arg['name']:
-                #@# capture snapshot info for volumes
-                snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
-                                                                           direction = 'GET',
-                                                                           headers = headers,
-                                                                           url = url)
-
-                #@# Check for errors in base rest call
-                error_check(snapshot_status)
+                if arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force']:
+                    #@# capture snapshot info for volumes
+                    snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
+                                                                               direction = 'GET',
+                                                                               headers = headers,
+                                                                               url = url)
     
-                #@# print snapshots for selected volumes based on volume name
-                fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
-                                                     prettify = False,
-                                                     snap_hash = json_snapshot_object)
-                
-
-                for volume in fs_snap_hash.keys():
-                    for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
-                        if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
-                            snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
-                            fileSystemId = fs_map_hash[volume]['fileSystemId']
-                            command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
+                    #@# Check for errors in base rest call
+                    error_check(snapshot_status)
+        
+                    #@# print snapshots for selected volumes based on volume name
+                    fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
+                                                         prettify = False,
+                                                         snap_hash = json_snapshot_object)
+                    
+    
+                    for volume in fs_snap_hash.keys():
+                        for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                            if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                                snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                                fileSystemId = fs_map_hash[volume]['fileSystemId']
+                                command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
                              
-                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                       direction = 'DELETE',
-                                                                                       headers = headers,
-                                                                                       url = url)
-                            
-                            #@# Check for errors in base rest call
-                            error_check(snapshot_status)
-                            print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
-            else:
-                print('\n--name must both be specified along with --snapDelete.\n')
-                exit()
+                                snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                           direction = 'DELETE',
+                                                                                           headers = headers,
+                                                                                           url = url)
+                                
+                                #@# Check for errors in base rest call
+                                error_check(snapshot_status)
+                                print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                else:
+                    print('\nThe snapDelete command resulted in an error. The following snapshot deletion options are supported:\
+                                                                                   \n\t--name X --volume <volume>\t\t\t#Delete Snapshot X from volume Y\
+                                                                                   \n\t--name X --volume <volume> --pattern --Force\t#Delete Snapshot X from volumes with names containing Y\
+                                                                                   \n\t--name X --Force \t\t\t\t#Delete Snapshot X where so ever it is found\n')
+                    exit()
             
     exit()       
 
@@ -299,99 +324,17 @@ def snapshot_extract_info(fs_map_hash = None, prettify = None, snap_hash = None)
 
 
 
-#MAIN
-
-'''
-Required Commands
-'''
-#Extract url and headers
-command_line()
-
-#@# Create full fs hash containing all info
-volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
-                                                       direction = 'GET',
-                                                       headers = headers,
-                                                       url = url)
-
-#@# Check for errors in base rest call
-error_check(volume_status)
-
-#@# Map filesystem ids to names
-#fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
-fs_map_hash = create_export_to_fsid_hash(filesystems = ['goofy-clever-sfs2','smb-server-test-volume-three'], json_object = json_volume_object)
-
-#@# print mount point to fsid map
-pretty_hash(fs_map_hash)
-
-''' 
-Main Volumes
-'''
-#@# print and capture info for specific volumes
-#vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object)
-
 '''
 Main Mount Targets
 '''
+
 #@# print anc capture ip addresses for volumes
 #mount_hash = extract_mount_target_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object, headers = headers, url = url)
 
-'''
-MAIN Snapshots
-'''
-#@# capture snapshot infor for volumes
-snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', direction = 'GET', headers = headers, url = url)
-
-#@# Check for errors in base rest call
-error_check(snapshot_status)
-
-#@# print snapshots for selected volumes
-snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
-
-#@# create snapshots
-data = {'region':'us-east','name':'us-east'}
-for volume in fs_map_hash.keys():
-    snapshot_status, json_snapshot_object = submit_api_request(command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots',
-                                                               data = data, 
-                                                               direction = 'POST', 
-                                                               headers = headers, 
-                                                               url = url)
-    #@# Check for errors in base rest call
-    error_check(snapshot_status)
-
-#'''
-#data = {'name':'sn1', 'region':'us-east'}
+'''MAIN'''
+command_line()
 
 '''
-    curl -s -H accept:application/json 
-            -H \"Content-type: application/json\" 
-            -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk 
-            -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE 
-            -X POST https://cds-aws-bundles.netapp.com:8080/v1/FileSystems 
-            -d \'{\"name\": \"$2\",
-                  \"creationToken\":\"$3\",
-                  \"region\":\"us-east\",
-                  \"serviceLevel\":\"$4\",
-                  \"quotaInBytes\":$5,
-                  \"exportPolicy\":{\"rules\":[
-                                               {\"ruleIndex\": 1,
-                                                \"allowedClients\":\"0.0.0.0/0\",
-                                                \"unixReadOnly\":false,
-                                                \"unixReadWrite\": true,
-                                                \"cifs\": false, 
-                                                \"nfsv3\":true,
-                                                \"nfsv4\":false}]},
-                  \"labels\":[\"$6\"]}\' > /tmp/$$.ksh
-
-#Create Volumes
-elif [[ $1 == "cv" ]]; then
-    echo curl -s -H accept:application/json -H \"Content-type: application/json\" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X POST https://cds-aws-bundles.netapp.com:8080/v1/FileSystems -d \'{\"name\": \"$2\",\"creationToken\":\"$3\",\"region\":\"us-east\",\"serviceLevel\":\"$4\",\"quotaInBytes\":$5,\"exportPolicy\":{\"rules\":[{\"ruleIndex\": 1,\"allowedClients\":\"0.0.0.0/0\",\"unixReadOnly\":false,\"unixReadWrite\": true,\"cifs\": false, \"nfsv3\":true,\"nfsv4\":false}]},\"labels\":[\"$6\"]}\' > /tmp/$$.ksh
-    chmod 777 /tmp/$$.ksh
-    /tmp/$$.ksh
-
-#Delete Volumes
-elif [[ $1 == "delete" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X DELETE https://cds-aws-bundles.netapp.com:8080/v1/FileSystems/$2
-
 #Inspect AD
 elif [[ $1 == "ad" ]]; then
     curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Storage/ActiveDirectory | jq '.'
@@ -415,5 +358,4 @@ elif [[ $1 == "jobs" ]]; then
 #View Backups
 elif [[ $1 == "backups" ]]; then
     curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Backups | jq '.'
-
 '''
