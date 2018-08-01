@@ -6,12 +6,13 @@ import os
 import sys
 
 def command_line():
-    parser = argparse.ArgumentParser(prog='cloudvolumes.py',description='%(prog)s is used to issue api calls on your behalf')
+    parser = argparse.ArgumentParser(prog='cvs_keys.py',description='%(prog)s is used to configure the aws_cvs_config base file')
     parser.add_argument('--url','-u',type=str,help='Enter an alternative url for the cloud volumes api service only if neccessary')
-    parser.add_argument('--secretkey','-s', type=str,help='Unless stored in config file, Enter the cloud volumes secret-key')
-    parser.add_argument('--apikey','-a', type=str,help='Unless stored in the config file, Enter the cloud volumes api-key')
+    parser.add_argument('--secretkey','-s', type=str,help='Enter the cloud volumes secret-key')
+    parser.add_argument('--apikey','-a', type=str,help='Enter the cloud volumes api-key')
+    parser.add_argument('--region','-r', type=str,help='Enter the cloud volumes region')
     arg = vars(parser.parse_args())
-    if len(set(arg.values())) != 3:
+    if len(set(arg.values())) != 4:
         parser.print_help()
         exit()
     home = expanduser("~")
