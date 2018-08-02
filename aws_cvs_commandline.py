@@ -7,21 +7,26 @@ import requests
 from os.path import expanduser
 
 
-def config_parser():
+def config_parser(project = None):
     home = expanduser("~")
     if os.path.exists(home + '/aws_cvs_config'):
         with open(home + '/aws_cvs_config','r') as config_file:
             temp = json.load(config_file)
+        if project not in temp.keys():
+            print('\nSpecified project was not found in aws_cvs_config: %s\n\nPlease check your input and try again\n' % (project))
+            exit()
+        
         headers = {}
-        headers['api-key'] = temp['apikey']
-        headers['secret-key'] = temp['secretkey']
+        headers['api-key'] = temp[project]['apikey']
+        headers['secret-key'] = temp[project]['secretkey']
         headers['content-type'] = 'application/json'
-        url = temp['url']
-        region = temp['region']
-        return headers, region, url
+        url = temp[project]['url']
+        region = temp[project]['region']
     else:
-        print('\aws_cvs_config not found, please run cvs_keys.py before proceeding\n')
+        print('aws_cvs_config not found, please run cvs_keys.py before proceeding\n')
         exit()
+    
+    return headers, region, url
 
 def quota_and_service_level_parser():
     if os.path.exists('service_level_and_quotas.json'):
@@ -42,9 +47,10 @@ def command_line():
     group.add_argument('--snapCreate',action='store_const',const=True,)
     group.add_argument('--snapDelete',action='store_const',const=True,)
     group.add_argument('--snapList', action='store_const',const=True,)
+    parser.add_argument('--project','-p',type=str,help='Enter the project name to interact with, otherwise the default project is selected')
     parser.add_argument('--Force', action='store_const',const=True,help='If specfied, substring\'s may be used along with Delete\
                                                                          operations. Supports all *Delete operations.')
-    parser.add_argument('--pattern','-p',action='store_const',const=True,help='Search for volumes using name as substring.\
+    parser.add_argument('--pattern','-P',action='store_const',const=True,help='Search for volumes using name as substring.\
                                                                                Supports snapList and volList nativley, snapDelete\
                                                                                and volDelete with --Force.\n\n')
     parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
@@ -57,9 +63,13 @@ def command_line():
     parser.add_argument('--cidr','-c',type=str,help='Volume bandwidth requirements in Megabytes per second. If unkown enter 0. Supports volCreate')
     parser.add_argument('--label','-l',type=str,help='Volume label. Supports volCreate')
     parser.add_argument('--count','-C',type=str,help='Specify the number of volumes to create. Supports volCreate')
-
     arg = vars(parser.parse_args())
-    headers, region, url = config_parser()
+    if arg['project']:
+        project = arg['project']
+    else:
+        project = 'default'
+    headers, region, url = config_parser(project = project)
+    
 
     #Use the region specified in the command line if present, otherwise go with that returned in the config file
     if arg['region']:
@@ -74,7 +84,9 @@ def command_line():
                                                                url = url)
         
         #@# Check for errors in base rest call
-        error_check(status_code = volume_status, body = json_volume_object)
+        error_check(body = json_volume_object,
+                    status_code = volume_status,
+                    url = url)
 
         #@# Map filesystem ids to names
         #fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
@@ -180,16 +192,16 @@ def command_line():
                     print('The volCreate command failed, see the following json output for the cause:\n')
                     pretty_hash(error_value)
             else:
-                print('\nThe volCreate command resulted in an error. The following volume creation flags are required:\n\
+                print('The volCreate command resulted in an error. The following volume creation flags are required:\
                                                                                \n\t--name | -n X\t\t\t\t#Name used for volume and export path\
                                                                                \n\t--gigabytes | -g [0 < X <= 100,000]\t#Allocated volume capacity in Gigabyte\
                                                                                \n\t--bandwidth | -b [0 <= X <= 3500]\t#Requested maximum volume bandwidth in Megabytes\
                                                                                \n\t--cidr | -c 0.0.0.0\\0\t\t\t#Network with acess to exported volume')
-                print('\nThe following creation flags are optional:\n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
+                print('The following creation flags are optional:\n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
                                                                                \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
-                                                                               \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume\
-                                                                               \n\t--label | -l X\t\t\t\t#Additional metadata for the volume(s)\n')
- 
+                                                                               \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume')
+                print('\t--label | -l X\t\t\t\t#Additional metadata for the volume(s)')
+
         #Volume delete does not support pattern matching or empty sets, a volume name must be entered
         elif arg['volDelete']:
             if arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force']:
@@ -201,12 +213,14 @@ def command_line():
                                                                                   direction = 'DELETE', 
                                                                                   headers = headers, 
                                                                                   url = url)
-                    error_check(status_code = volume_status, body = json_volume_delete_object)
+                    error_check(body = json_volume_delete_object,
+                                status_code = volume_status,
+                                url = url)
                     print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
             else:
-                print('\nThe volDelete command resulted in an error. The following volume deletion options are supported:\
+                print('The volDelete command resulted in an error. The following volume deletion options are supported:\
                                                                                \n\t--name X --volume <volume>\t\t\t#Delete volume X\
-                                                                               \n\t--name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X\n')
+                                                                               \n\t--name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X')
 
         
         ##########################################################
@@ -222,7 +236,9 @@ def command_line():
                                                                        url = url)
 
             #@# Check for errors in base rest call
-            error_check(status_code = snapshot_status, body = json_snapshot_object)
+            error_check(body = json_snapshot_object,
+                               status_code = snapshot_status,
+                               url = url)
 
             #@# print snapshots for selected volumes
             snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
@@ -238,7 +254,9 @@ def command_line():
                                                                                headers = headers, 
                                                                                url = url)
                     #@# Check for errors in base rest call
-                    error_check(status_code = snapshot_status, body = json_snapshot_object)
+                    error_check(body = json_snapshot_object,
+                                status_code = snapshot_status,
+                                url = url)
                     print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
             else:
                 print('\n--name  must be specified along with --snapCreate.\n')
@@ -254,7 +272,9 @@ def command_line():
                                                                                url = url)
     
                     #@# Check for errors in base rest call
-                    error_check(status_code = snapshot_status, body = json_snapshot_object)
+                    error_check(body = json_snapshot_object,
+                                status_code = snapshot_status,
+                                url = url)
         
                     #@# print snapshots for selected volumes based on volume name
                     fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
@@ -275,13 +295,15 @@ def command_line():
                                                                                            url = url)
                                 
                                 #@# Check for errors in base rest call
-                                error_check(status_code = snapshot_status, body = json_snapshot_object)
+                                error_check(body = json_snapshot_object,
+                                            status_code = snapshot_status,
+                                            url = url)
                                 print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
                 else:
-                    print('\nThe snapDelete command resulted in an error. The following snapshot deletion options are supported:\
+                    print('The snapDelete command resulted in an error. The following snapshot deletion options are supported:\
                                                                                    \n\t--name X --volume <volume>\t\t\t#Delete Snapshot X from volume Y\
                                                                                    \n\t--name X --volume <volume> --pattern --Force\t#Delete Snapshot X from volumes with names containing Y\
-                                                                                   \n\t--name X --Force \t\t\t\t#Delete Snapshot X where so ever it is found\n')
+                                                                                   \n\t--name X --Force \t\t\t\t#Delete Snapshot X where so ever it is found')
                     exit()
             
     exit()       
@@ -335,9 +357,12 @@ def submit_api_request( command = None, data = None, direction = None, headers =
 '''
 For now exit if error code != 200
 '''
-def error_check(status_code = None, body = None): 
+def error_check(status_code = None, body = None, url = None): 
     if status_code < 200 or status_code >= 300:
-        print('\n%s\n' % (body['message']))
+        if status_code == 404:
+            print('\nThe following error condition was met for url %s: %s\n' % (url,body['message']))
+        else:
+            print('\n%s\n' % (body['message']))
         exit()
 
 '''
@@ -427,7 +452,9 @@ def volume_creation(bandwidth = None,
                                                            direction = 'POST', 
                                                            headers = headers,
                                                            url = url )
-    error_check(status_code = volume_status, body = json_volume_object)
+    error_check(body = json_volume_object,
+                status_code = volume_status,
+                url = url)
     if service_level == 'basic':
         service_level_alt = 'standard'
     elif service_level == 'standard':
@@ -572,7 +599,9 @@ def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object =
         mount_hash[mount] = {}
         mount_hash[mount]['fileSystemId'] = fsid
         status, json_mountarget_object = submit_api_request(command = ('FileSystems/%s/MountTargets' % (fsid)), direction = 'GET', headers = headers, url = url)
-        error_check(status_code = status, body = json_mountarget_object)
+        error_check(body = json_mountarget_object,
+                    status_code = status,
+                    url = url)
         mount_hash[mount]['ipaddress'] = json_mountarget_object[0]['ipAddress']
     pretty_hash(mount_hash)
     return mount_hash
