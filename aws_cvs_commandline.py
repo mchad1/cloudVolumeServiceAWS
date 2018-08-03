@@ -257,18 +257,35 @@ def command_line():
 
         elif arg['snapList']:
             #@# capture snapshot infor for volumes
-            snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', 
-                                                                       direction = 'GET',
-                                                                       headers = headers, 
-                                                                       url = url)
+            if arg['pattern'] and not arg['volume']:
+                print('The snapList command resulted in an error:\tCommand line parameter --patterns requires --volumes <volume>')
+                snapList_error_message()
+            elif arg['Force']:
+                print('The snapList command resulted in an error:\tCommand line parameter --Force is not supported')
+                snapList_error_message()
+            else:
+                if len(fs_map_hash) == 0: 
+                    if arg['volume'] and arg['pattern']:
+                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                    elif arg['volume']:
+                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                    else: 
+                        print('The snapList command resulted in an error:\tNo volumes exist.')
+                    exit()
+                else:
+                    #@# capture snapshot info for volumes
+                    snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', 
+                                                                               direction = 'GET',
+                                                                               headers = headers, 
+                                                                               url = url)
 
-            #@# Check for errors in base rest call
-            error_check(body = json_snapshot_object,
-                               status_code = snapshot_status,
-                               url = url)
+                    #@# Check for errors in base rest call
+                    error_check(body = json_snapshot_object,
+                                       status_code = snapshot_status,
+                                       url = url)
 
-            #@# print snapshots for selected volumes
-            snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
+                    #@# print snapshots for selected volumes
+                    snapshot_extract_info(fs_map_hash = fs_map_hash, prettify = True, snap_hash = json_snapshot_object)
 
         elif arg['snapCreate']:
             if arg['name']:
@@ -807,6 +824,13 @@ def snapshot_extract_info(fs_map_hash = None, prettify = None, snap_hash = None)
         if prettify: 
             pretty_hash(fs_snap_hash)
         return fs_snap_hash
+
+def snapList_error_message():
+    print('\nThe following snapshot list command line options are supported:\
+           \n\tsnapList --volume <volume>\t\t\t#List all snapshots for specified volume.\
+           \n\tsnapList --volume <volume> --pattern\t#List all snapshot from volumes with names containing Y.\
+           \n\tsnapList\t\t\t\t#List all snapshot accross all volumes.')
+    exit()
 
 def snapCreate_error_message():
     print('\nThe following snapshot creation command line options are supported:\
