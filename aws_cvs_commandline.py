@@ -313,47 +313,11 @@ def command_line():
                 elif arg['Force'] and arg['volume'] and not arg['pattern']:
                     print('The snapDelete command resulted in an error:\tIncorrect Command line')
                     snapDelete_error_message()
+                elif arg['name'] and arg['pattern'] and not arg['Force']: 
+                    print('The snapDelete command resulted in an error:\tCommand line options missings')
+                    snapDelete_error_message()
                 elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force'] :
-                    #@# capture snapshot info for volumes
-                    snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
-                                                                               direction = 'GET',
-                                                                               headers = headers,
-                                                                               url = url)
-    
-                    #@# Check for errors in base rest call
-                    error_check(body = json_snapshot_object,
-                                status_code = snapshot_status,
-                                url = url)
-        
-                    #@# print snapshots for selected volumes based on volume name
-                    fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
-                                                         prettify = False,
-                                                         snap_hash = json_snapshot_object)
-                    if fs_snap_hash is not None: 
-                        for volume in fs_snap_hash.keys():
-                            #Use this to record if we actually deleted any snapshots
-                            tracking_deletions = 0
-                            for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
-                                if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
-                                    snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
-                                    fileSystemId = fs_map_hash[volume]['fileSystemId']
-                                    command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
-                                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                               direction = 'DELETE',
-                                                                                               headers = headers,
-                                                                                               url = url)
-                                    
-                                    #@# Check for errors in base rest call
-                                    error_check(body = json_snapshot_object,
-                                                status_code = snapshot_status,
-                                                url = url)
-                                    print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
-                                    tracking_deletions += 1 
-
-                                if tracking_deletions == 0:
-                                    print('The snapDelete command resulted in zero deletions: :\tNo volumes contained snapshot %s' % (arg['name']))
-                                    exit()
-                    else:
+                    if len(fs_map_hash) == 0: 
                         if arg['volume'] and arg['pattern']:
                             print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
                         elif arg['volume']:
@@ -361,15 +325,52 @@ def command_line():
                         else: 
                             print('The snapDelete command resulted in an error:\tNo volumes exist.')
                         exit()
-                elif arg['name'] and arg['pattern'] and not arg['Force']: 
-                    print('The snapDelete command resulted in an error:\tCommand line options missings')
-                    snapDelete_error_message()
-                elif arg['name'] and not arg['Force']: 
-                    print('The snapDelete command resulted in an error:\tCommand line options missings')
-                    snapDelete_error_message()
+                    else:
+                        #@# capture snapshot info for volumes
+                        snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
+                                                                                   direction = 'GET',
+                                                                                   headers = headers,
+                                                                                   url = url)
+        
+                        #@# Check for errors in base rest call
+                        error_check(body = json_snapshot_object,
+                                    status_code = snapshot_status,
+                                    url = url)
+            
+                        #@# print snapshots for selected volumes based on volume name
+                        fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
+                                                             prettify = False,
+                                                             snap_hash = json_snapshot_object)
+                        tracking_deletions = 0
+                        if fs_snap_hash is not None: 
+                            for volume in fs_snap_hash.keys():
+                                #Use this to record if we actually deleted any snapshots
+                                for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                                    if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                                        snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                                        fileSystemId = fs_map_hash[volume]['fileSystemId']
+                                        command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
+                                        snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                                   direction = 'DELETE',
+                                                                                                   headers = headers,
+                                                                                                   url = url)
+                                        
+                                        #@# Check for errors in base rest call
+                                        error_check(body = json_snapshot_object,
+                                                    status_code = snapshot_status,
+                                                    url = url)
+                                        print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                        tracking_deletions += 1 
+                            exit()
+    
+                        if tracking_deletions == 0:
+                            print('The snapDelete command resulted in zero deletions: :\tNo volumes contained snapshot %s' % (arg['name']))
+                        exit()
             else:
                 print('The snapDelete command resulted in an error:\tThe required flag --name name was not specified.')
                 snapDelete_error_message()
+
+
 
         #Revert filesystem(s) to a specific snapshot
         elif arg['snapRevert']:
