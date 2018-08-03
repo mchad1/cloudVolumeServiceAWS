@@ -378,47 +378,61 @@ def command_line():
                 if arg['pattern']  and  arg['Force'] and not arg['volume']:
                     print('The snapRevert command resulted in an error:\tThe --pattern flag requires both --volume <substring> and --Force.')
                     snapRevert_error_message()
+                elif arg['pattern']  and  not arg['Force']:
+                    print('The snapRevert command resulted in an error:\tThe flag --pattern was specified without --Force.')
+                    snapRevert_error_message()
                 elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force']:
-                    #@# capture snapshot info for volumes
-                    snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
-                                                                               direction = 'GET',
-                                                                               headers = headers,
-                                                                               url = url)
-                    #@# Check for errors in base rest call
-                    error_check(body = json_snapshot_object,
-                                status_code = snapshot_status,
-                                url = url)
-        
-                    #@# print snapshots for selected volumes based on volume name
-                    fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
-                                                         prettify = False,
-                                                         snap_hash = json_snapshot_object)
-    
-                    if fs_snap_hash is not None: 
-                        for volume in fs_snap_hash.keys():
-                            for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
-                                if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
-                                    snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
-                                    fileSystemId = fs_map_hash[volume]['fileSystemId']
-                                    command = 'FileSystems/' + fileSystemId + '/Revert'
-                                    data = {'region':region,'snapshotId':snapshotId, 'fileSystemId':fileSystemId}
-                                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                               data = data,
-                                                                                               direction = 'POST',
-                                                                                               headers = headers,
-                                                                                               url = url)
-                                    
-                                    #@# Check for errors in base rest call
-                                    error_check(body = json_snapshot_object,
-                                                status_code = snapshot_status,
-                                                url = url)
-                                    print('Snapshot Revert submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                    if len(fs_map_hash) == 0: 
+                        if arg['volume'] and arg['pattern']:
+                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                        elif arg['volume']:
+                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                        else: 
+                            print('The snapRevert command resulted in an error:\tNo volumes exist.')
                         exit()
                     else:
-                        print('The snapRevert command resulted in an error:\tNo volumes contain snapshot %s.' % (arg['name']))
+                        #@# capture snapshot info for volumes
+                        snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
+                                                                                   direction = 'GET',
+                                                                                   headers = headers,
+                                                                                   url = url)
+                        #@# Check for errors in base rest call
+                        error_check(body = json_snapshot_object,
+                                    status_code = snapshot_status,
+                                    url = url)
+            
+                        #@# print snapshots for selected volumes based on volume name
+                        fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
+                                                             prettify = False,
+                                                             snap_hash = json_snapshot_object)
+    
+                        tracking_reversions = 0
+                        if fs_snap_hash is not None: 
+                            for volume in fs_snap_hash.keys():
+                                for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                                    if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                                        snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                                        fileSystemId = fs_map_hash[volume]['fileSystemId']
+                                        command = 'FileSystems/' + fileSystemId + '/Revert'
+                                        data = {'region':region,'snapshotId':snapshotId, 'fileSystemId':fileSystemId}
+                                        snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                                   data = data,
+                                                                                                   direction = 'POST',
+                                                                                                   headers = headers,
+                                                                                                   url = url)
+                                    
+                                        #@# Check for errors in base rest call
+                                        error_check(body = json_snapshot_object,
+                                                    status_code = snapshot_status,
+                                                    url = url)
+                                        print('Snapshot Revert submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                        tracking_reversions += 1 
+                            exit()
+                        if tracking_reversions == 0:
+                            print('The snapRevert command resulted in zero volume reversions: :\tNo volumes contained snapshot %s' % (arg['name']))
                         exit()
                 else:
-                    print('The snapRevert command resulted in an error:\tThe flag --pattern was specified without --Force.')
+                    print('The snapRevert command resulted in an error:\tThe required flag --name requires additional options.')
                     snapRevert_error_message()
             else:
                 print('The snapRevert command resulted in an error:\tThe required flag --name name was not specified.')
