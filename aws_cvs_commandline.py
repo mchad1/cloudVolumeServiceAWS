@@ -511,9 +511,11 @@ For now exit if error code != 200
 def error_check(status_code = None, body = None, url = None): 
     if status_code < 200 or status_code >= 300:
         if status_code == 404:
-            print('\nThe following error condition was met for url %s: %s\n' % (url,body['message']))
+            print('The specified url could not be found (404):\tcheck validity of the url.\nurl: %s\nmessage: %s' % (url,body['message']))
+        elif status_code == 403:
+            print('Access to the specified url is forbidden (403):\tcheck validity of apikey and secretkey')
         else:
-            print('\n%s\n' % (body['message']))
+            print('%s' % (body['message']))
         exit()
 
 '''
