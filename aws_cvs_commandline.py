@@ -47,12 +47,13 @@ def command_line():
     group.add_argument('--snapCreate',action='store_const',const=True,)
     group.add_argument('--snapDelete',action='store_const',const=True,)
     group.add_argument('--snapList', action='store_const',const=True,)
+    group.add_argument('--snapRevert', action='store_const',const=True,)
     parser.add_argument('--project','-p',type=str,help='Enter the project name to interact with, otherwise the default project is selected')
-    parser.add_argument('--Force', action='store_const',const=True,help='If specfied, substring\'s may be used along with Delete\
-                                                                         operations. Supports all *Delete operations.')
+    parser.add_argument('--Force', action='store_const',const=True,help='If specfied, enables substring\'s to work *Delete and Revert\
+                                                                         operations. Supports all *Delete operations as well as snapRevert.')
     parser.add_argument('--pattern','-P',action='store_const',const=True,help='Search for volumes using name as substring.\
                                                                                Supports snapList and volList nativley, snapDelete\
-                                                                               and volDelete with --Force.\n\n')
+                                                                               and volDelete as well as snapRevert with --Force.\n\n')
     parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
     parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, specify only if different than that\
                                                        listed already in the aws_cvs_config.json file. Supports snapCreate and volCreate')
@@ -76,7 +77,7 @@ def command_line():
         region = arg['region']
     
     
-    if arg['volList'] or arg['snapList'] or arg['snapCreate'] or arg['snapDelete'] or arg['volDelete'] or arg['volCreate']:
+    if arg['volList'] or arg['snapList'] or arg['snapCreate'] or arg['snapDelete'] or arg['volDelete'] or arg['volCreate'] or arg['snapRevert']:
         #@# Create full fs hash containing all info
         volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                                direction = 'GET',
@@ -106,78 +107,84 @@ def command_line():
         #                      Volume Commands
         ##########################################################
         
+        #Get a list of all volumes matching inputted -volume and --pattern if specified, or alternativley all volumes
         if arg['volList']:
-            #@# print and capture info for specific volumes
-            vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
-                                                        json_object = json_volume_object)
+            if arg['Force']:
+                print('The volList command resulted in an error.\tThe --Force flag is not supported.')
+                volList_error_message()
+            elif arg['pattern'] and not arg['volume']:
+                print('The volList command resulted in an error:\tThe --pattern flag requires --volume <volume>.')
+                volList_error_message()
+            elif len(fs_map_hash) > 0:
+                #@# print and capture info for specific volumes
+                vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
+                                                            json_object = json_volume_object)
+            else:
+                if arg['volume'] and arg['pattern']:
+                    print('The volList command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                elif arg['volume']:
+                    print('The volList command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                else: 
+                    print('The volList command resulted in an error:\tNo volumes exist.')
+                exit()
+
         elif arg['volCreate']:
-            if arg['gigabytes'] and arg['bandwidth'] and arg['cidr'] and arg['name'] and region:
-                error = False 
-                error_value = {}
+            if arg['name']:
+                if arg['gigabytes'] and arg['bandwidth'] and arg['cidr'] and arg['name'] and region:
+                    error = False 
+                    error_value = {}
     
-                if len(arg['name']) < 15:
-                    error = True
-                    error_value['name_length'] = 'Name length is too short'
-                if len(arg['name']) > 33:
-                    error = True
-                    error_value['name_length'] = 'Name length is too long'
-                for index in range(0,len(arg['name'])):
-                    local_error = is_ord(my_string = arg['name'][index], position = index)
+                    if len(arg['name']) < 15:
+                        error = True
+                        error_value['name_length'] = 'Name length is too short'
+                    if len(arg['name']) > 33:
+                        error = True
+                        error_value['name_length'] = 'Name length is too long'
+                    for index in range(0,len(arg['name'])):
+                        local_error = is_ord(my_string = arg['name'][index], position = index)
+                        if local_error == True:
+                            error = True
+                            error_value['name_illegal_character'] = 'Illegal char type'
+                    local_error = is_number(arg['gigabytes'])
                     if local_error == True:
                         error = True
-                        error_value['name_illegal_character'] = 'Illegal char type'
-                local_error = is_number(arg['gigabytes'])
-                if local_error == True:
-                    error = True
-                    error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
-                elif int(arg['gigabytes']) < 1 or int(arg['gigabytes']) > 100000:
-                    print arg['gigabytes'] 
-                    error = True
-                    error_value['size'] = 'Capacity was either smaller than 1GB or greater than 100,000GB'
-                local_error = is_number(arg['bandwidth'])
-                if local_error == True:
-                    error = True
-                    error_value['bw_integer'] = 'Bandwidth was not a numeric value'
-                elif arg['bandwidth'] < 0:
-                    error = True
-                    error_value['bw'] = 'Negative value entered'
-                service_level, quotainbytes, bandwidthMB = service_level_and_quota_lookup(bwmb = arg['bandwidth'], gigabytes = arg['gigabytes'])
-                local_error = cidr_rule_check(arg['cidr'])
-                if local_error == True:
-                    error = True
-                    error_value['cidr'] = 'Cidr rule is incorrect'
-                if arg['count']: 
-                    local_error = is_number(arg['count'])
+                        error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
+                    elif int(arg['gigabytes']) < 1 or int(arg['gigabytes']) > 100000:
+                        print arg['gigabytes'] 
+                        error = True
+                        error_value['size'] = 'Capacity was either smaller than 1GB or greater than 100,000GB'
+                    local_error = is_number(arg['bandwidth'])
                     if local_error == True:
                         error = True
-                        error_value['count_int'] = 'count is a non integer'
-                    elif int(arg['count']) < 1:
+                        error_value['bw_integer'] = 'Bandwidth was not a numeric value'
+                    elif arg['bandwidth'] < 0:
                         error = True
-                        error_value['count'] = 'count is < 1'
+                        error_value['bw'] = 'Negative value entered'
+                    service_level, quotainbytes, bandwidthMB = service_level_and_quota_lookup(bwmb = arg['bandwidth'], gigabytes = arg['gigabytes'])
+                    local_error = cidr_rule_check(arg['cidr'])
+                    if local_error == True:
+                        error = True
+                        error_value['cidr'] = 'Cidr rule is incorrect'
+                    if arg['count']: 
+                        local_error = is_number(arg['count'])
+                        if local_error == True:
+                            error = True
+                            error_value['count_int'] = 'count is a non integer'
+                        elif int(arg['count']) < 1:
+                            error = True
+                            error_value['count'] = 'count is < 1'
+                        else:
+                            count = int(arg['count'])
                     else:
-                        count = int(arg['count'])
-                else:
-                    count = 1
-                if arg['label']:
-                    label = arg['label']
-                else:
-                    label = None
-    
-                if error == False: 
-                    if count == 1:
-                        name = arg['name']
-                        volume_creation(bandwidth = bandwidthMB,
-                                        cidr = arg['cidr'],
-                                        headers = headers,
-                                        label = label,
-                                        name = name,
-                                        quota_in_bytes = quotainbytes,
-                                        region = region,
-                                        service_level = service_level,
-                                        url = url)
+                        count = 1
+                    if arg['label']:
+                        label = arg['label']
                     else:
-                        while count > 0:
-                            name = arg['name'] + '-' + str(count)
+                        label = None
+        
+                    if error == False: 
+                        if count == 1:
+                            name = arg['name']
                             volume_creation(bandwidth = bandwidthMB,
                                             cidr = arg['cidr'],
                                             headers = headers,
@@ -187,40 +194,60 @@ def command_line():
                                             region = region,
                                             service_level = service_level,
                                             url = url)
-                            count -= 1
+                        else:
+                            while count > 0:
+                                name = arg['name'] + '-' + str(count)
+                                volume_creation(bandwidth = bandwidthMB,
+                                                cidr = arg['cidr'],
+                                                headers = headers,
+                                                label = label,
+                                                name = name,
+                                                quota_in_bytes = quotainbytes,
+                                                region = region,
+                                                service_level = service_level,
+                                                url = url)
+                                count -= 1
+                    else:
+                        print('The volCreate command failed, see the following json output for the cause:\n')
+                        pretty_hash(error_value)
+                        volCreate_error_message()
                 else:
-                    print('The volCreate command failed, see the following json output for the cause:\n')
-                    pretty_hash(error_value)
-            else:
-                print('The volCreate command resulted in an error. The following volume creation flags are required:\
-                                                                               \n\t--name | -n X\t\t\t\t#Name used for volume and export path\
-                                                                               \n\t--gigabytes | -g [0 < X <= 100,000]\t#Allocated volume capacity in Gigabyte\
-                                                                               \n\t--bandwidth | -b [0 <= X <= 3500]\t#Requested maximum volume bandwidth in Megabytes\
-                                                                               \n\t--cidr | -c 0.0.0.0\\0\t\t\t#Network with acess to exported volume')
-                print('The following creation flags are optional:\n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
-                                                                               \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
-                                                                               \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume')
-                print('\t--label | -l X\t\t\t\t#Additional metadata for the volume(s)')
+                    volCreate_error_message()
+            else:   
+                print('The volCreate command resulted in an error.\tThe required flag --name was not specified.')
+                volCreate_error_message()
 
         #Volume delete does not support pattern matching or empty sets, a volume name must be entered
         elif arg['volDelete']:
-            if arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force']:
-                #@# Delete specific volumes
-                for volume in fs_map_hash.keys():
-                    fileSystemId = fs_map_hash[volume]['fileSystemId']
-                    command = 'FileSystems/' + fileSystemId
-                    volume_status, json_volume_delete_object = submit_api_request(command = command,
-                                                                                  direction = 'DELETE', 
-                                                                                  headers = headers, 
-                                                                                  url = url)
-                    error_check(body = json_volume_delete_object,
-                                status_code = volume_status,
-                                url = url)
-                    print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
+            if arg['volume']:
+                if arg['pattern']  and not arg['Force']:
+                    print('The volDelete command resulted in an error:\tThe --pattern flag requires both --volume <volume> and --Force.')
+                    volDelete_error_message()
+                elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force']:
+                    #@# Delete specific volumes
+                    if len(fs_map_hash) > 0:
+                        for volume in fs_map_hash.keys():
+                            fileSystemId = fs_map_hash[volume]['fileSystemId']
+                            command = 'FileSystems/' + fileSystemId
+                            volume_status, json_volume_delete_object = submit_api_request(command = command,
+                                                                                          direction = 'DELETE', 
+                                                                                          headers = headers, 
+                                                                                          url = url)
+                            error_check(body = json_volume_delete_object,
+                                        status_code = volume_status,
+                                        url = url)
+                            print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
+                    else:
+                        if arg['pattern']:
+                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                        else:
+                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                        exit()
+                else:
+                    volDelete_error_message()
             else:
-                print('The volDelete command resulted in an error. The following volume deletion options are supported:\
-                                                                               \n\t--name X --volume <volume>\t\t\t#Delete volume X\
-                                                                               \n\t--name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X')
+                print('The volDelete command resulted in an error.\tThe required flag --volume was not specified.')
+                volDelete_error_message()
 
         
         ##########################################################
@@ -245,26 +272,48 @@ def command_line():
 
         elif arg['snapCreate']:
             if arg['name']:
-                data = {'region':region,'name':arg['name']}
-                for volume in fs_map_hash.keys():
-                    command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots'
-                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                               data = data, 
-                                                                               direction = 'POST', 
-                                                                               headers = headers, 
-                                                                               url = url)
-                    #@# Check for errors in base rest call
-                    error_check(body = json_snapshot_object,
-                                status_code = snapshot_status,
-                                url = url)
-                    print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
+                if arg['Force']:
+                    print('The snapCreate command resulted in an error.\tThe --Force flag is not supported.')
+                    snapCreate_error_message()
+                elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] or not arg['volume'] and not arg['pattern']:
+                    data = {'region':region,'name':arg['name']}
+                    
+                    if len(fs_map_hash) > 0:
+                        for volume in fs_map_hash.keys():
+                            command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots'
+                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                       data = data, 
+                                                                                       direction = 'POST', 
+                                                                                       headers = headers, 
+                                                                                       url = url)
+                            #@# Check for errors in base rest call
+                            error_check(body = json_snapshot_object,
+                                        status_code = snapshot_status,
+                                        url = url)
+                            print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
+                        exit()
+                    else:
+                        if arg['volume'] and arg['pattern']:
+                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                        elif arg['volume']:
+                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                        else: 
+                            print('The snapCreate command resulted in an error:\tNo volumes exist.')
+                        exit()
             else:
-                print('\n--name  must be specified along with --snapCreate.\n')
-                exit()
+                print('The snapCreate command resulted in an error.\tThe required flag --name name was not specified.')
+                snapCreate_error_message()
                 
+        #snapDelete Code
         elif arg['snapDelete']:
             if arg['name']:
-                if arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force']:
+                if arg['pattern'] and arg['Force'] and not arg['volume']:
+                    print('The snapDelete command resulted in an error:\tCommand line options missings')
+                    snapDelete_error_message()
+                elif arg['Force'] and arg['volume'] and not arg['pattern']:
+                    print('The snapDelete command resulted in an error:\tIncorrect Command line')
+                    snapDelete_error_message()
+                elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force'] :
                     #@# capture snapshot info for volumes
                     snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
                                                                                direction = 'GET',
@@ -280,35 +329,103 @@ def command_line():
                     fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
                                                          prettify = False,
                                                          snap_hash = json_snapshot_object)
-                    
+                    if fs_snap_hash is not None: 
+                        for volume in fs_snap_hash.keys():
+                            #Use this to record if we actually deleted any snapshots
+                            tracking_deletions = 0
+                            for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                                if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                                    snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                                    fileSystemId = fs_map_hash[volume]['fileSystemId']
+                                    command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
+                                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                               direction = 'DELETE',
+                                                                                               headers = headers,
+                                                                                               url = url)
+                                    
+                                    #@# Check for errors in base rest call
+                                    error_check(body = json_snapshot_object,
+                                                status_code = snapshot_status,
+                                                url = url)
+                                    print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                    tracking_deletions += 1 
+
+                                if tracking_deletions == 0:
+                                    print('The snapDelete command resulted in zero deletions: :\tNo volumes contained snapshot %s' % (arg['name']))
+                                    exit()
+                    else:
+                        if arg['volume'] and arg['pattern']:
+                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                        elif arg['volume']:
+                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                        else: 
+                            print('The snapDelete command resulted in an error:\tNo volumes exist.')
+                        exit()
+                elif arg['name'] and arg['pattern'] and not arg['Force']: 
+                    print('The snapDelete command resulted in an error:\tCommand line options missings')
+                    snapDelete_error_message()
+                elif arg['name'] and not arg['Force']: 
+                    print('The snapDelete command resulted in an error:\tCommand line options missings')
+                    snapDelete_error_message()
+            else:
+                print('The snapDelete command resulted in an error:\tThe required flag --name name was not specified.')
+                snapDelete_error_message()
+
+        #Revert filesystem(s) to a specific snapshot
+        elif arg['snapRevert']:
+            if arg['name']:
+                if arg['pattern']  and  arg['Force'] and not arg['volume']:
+                    print('The snapRevert command resulted in an error:\tThe --pattern flag requires both --volume <substring> and --Force.')
+                    snapRevert_error_message()
+                elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force']:
+                    #@# capture snapshot info for volumes
+                    snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
+                                                                               direction = 'GET',
+                                                                               headers = headers,
+                                                                               url = url)
+                    #@# Check for errors in base rest call
+                    error_check(body = json_snapshot_object,
+                                status_code = snapshot_status,
+                                url = url)
+        
+                    #@# print snapshots for selected volumes based on volume name
+                    fs_snap_hash = snapshot_extract_info(fs_map_hash = fs_map_hash,
+                                                         prettify = False,
+                                                         snap_hash = json_snapshot_object)
     
-                    for volume in fs_snap_hash.keys():
-                        for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
-                            if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
-                                snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
-                                fileSystemId = fs_map_hash[volume]['fileSystemId']
-                                command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
-                             
-                                snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                           direction = 'DELETE',
-                                                                                           headers = headers,
-                                                                                           url = url)
-                                
-                                #@# Check for errors in base rest call
-                                error_check(body = json_snapshot_object,
-                                            status_code = snapshot_status,
-                                            url = url)
-                                print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                    if fs_snap_hash is not None: 
+                        for volume in fs_snap_hash.keys():
+                            for index in range(0,len(fs_snap_hash[volume]['snapshots'])):
+                                if fs_snap_hash[volume]['snapshots'][index]['name'] == arg['name']:
+                                    snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
+                                    fileSystemId = fs_map_hash[volume]['fileSystemId']
+                                    command = 'FileSystems/' + fileSystemId + '/Revert'
+                                    data = {'region':region,'snapshotId':snapshotId, 'fileSystemId':fileSystemId}
+                                    snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                               data = data,
+                                                                                               direction = 'POST',
+                                                                                               headers = headers,
+                                                                                               url = url)
+                                    
+                                    #@# Check for errors in base rest call
+                                    error_check(body = json_snapshot_object,
+                                                status_code = snapshot_status,
+                                                url = url)
+                                    print('Snapshot Revert submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                        exit()
+                    else:
+                        print('The snapRevert command resulted in an error:\tNo volumes contain snapshot %s.' % (arg['name']))
+                        exit()
                 else:
-                    print('The snapDelete command resulted in an error. The following snapshot deletion options are supported:\
-                                                                                   \n\t--name X --volume <volume>\t\t\t#Delete Snapshot X from volume Y\
-                                                                                   \n\t--name X --volume <volume> --pattern --Force\t#Delete Snapshot X from volumes with names containing Y\
-                                                                                   \n\t--name X --Force \t\t\t\t#Delete Snapshot X where so ever it is found')
-                    exit()
+                    print('The snapRevert command resulted in an error:\tThe flag --pattern was specified without --Force.')
+                    snapRevert_error_message()
+            else:
+                print('The snapRevert command resulted in an error:\tThe required flag --name name was not specified.')
+                snapRevert_error_message()
+           
             
     exit()       
 
-    
  
 
 
@@ -350,6 +467,8 @@ def submit_api_request( command = None, data = None, direction = None, headers =
         r = requests.get(url + '/' + command, headers = headers)
     elif direction == 'POST':
         r = requests.post(url + '/' + command, data = json.dumps(data), headers = headers)
+    elif direction == 'PUT':
+        r = requests.put(url + '/' + command, data = json.dumps(data), headers = headers)
     elif direction == 'DELETE':
         r = requests.delete(url + '/' + command, headers = headers)
     return r.status_code,r.json()
@@ -580,8 +699,31 @@ def cidr_rule_check(cidr=None):
         error = True
     return error
     
+def volList_error_message():
+    print('\nThe following vol list command line options are supported:\
+           \n\tvolList --volume <volume>\t\t\t#Return information about volume X\
+           \n\tvolList --name X --volume <volume> --pattern\t#Return information about volumes with names containing substring X\
+           \n\tvolList\t\t\t\t\t\t#Return information about volumes with names containing substring X')
+    exit()
 
+def volCreate_error_message():
+    print('\nThe following volCreate flags are required:\
+           \n\t--name | -n X\t\t\t\t#Name used for volume and export path\
+           \n\t--gigabytes | -g [0 < X <= 100,000]\t#Allocated volume capacity in Gigabyte\
+           \n\t--bandwidth | -b [0 <= X <= 3500]\t#Requested maximum volume bandwidth in Megabytes\
+           \n\t--cidr | -c 0.0.0.0\\0\t\t\t#Network with acess to exported volume')
+    print('\nThe following flags are optional:\
+           \n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
+           \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
+           \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume')
+    print('\t--label | -l X\t\t\t\t#Additional metadata for the volume(s)')
+    exit()
 
+def volDelete_error_message():
+    print('\nThe following vol deletion command line options are supported:\
+           \n\tvolDelete --name X --volume <volume>\t\t\t#Delete volume X\
+           \n\tvolDelete --name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X')
+    exit()
 
 ##########################################################
 #                     Mount Target Functions
@@ -636,17 +778,41 @@ def snapshot_extract_info(fs_map_hash = None, prettify = None, snap_hash = None)
     for mount in fs_map_hash.keys():
         for index in range(0,len(snap_hash)):
             if snap_hash[index]['fileSystemId'] == fs_map_hash[mount]['fileSystemId']:
-                if mount not in fs_snap_hash:
-                    fs_snap_hash[mount] = {}
-                    fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['fileSystemId']
-                    fs_snap_hash[mount]['snapshots'] = []
-                fs_snap_hash[mount]['snapshots'].append(snap_hash[index])
+                '''
+                Only work with snapshots in 'available' state
+                '''
+                if snap_hash[index]['lifeCycleState'] == 'available':
+                    if mount not in fs_snap_hash:
+                        fs_snap_hash[mount] = {}
+                        fs_snap_hash[mount]['fileSystemId'] = fs_map_hash[mount]['fileSystemId']
+                        fs_snap_hash[mount]['snapshots'] = []
+                    fs_snap_hash[mount]['snapshots'].append(snap_hash[index])
 
     if len(fs_snap_hash) > 0:
         if prettify: 
             pretty_hash(fs_snap_hash)
         return fs_snap_hash
 
+def snapCreate_error_message():
+    print('\nThe following snapshot creation command line options are supported:\
+           \n\tsnapCreate --name X --volume <volume>\t\t#Create snapshot X on volume Y.\
+           \n\tsnapCreate --name X --volume <volume> --pattern\t#Create snapshot X on volumes with names containing substring Y.\
+           \n\tsnapCreate --name X\t\t\t\t#Create snapshot X on all volumes.')
+    exit()
+    
+def snapRevert_error_message():
+    print('\nThe following snapshot reversion command line options are supported:\
+           \n\tsnapRevert --name X --volume <volume>\t\t\t#Revert to Snapshot X for volume Y.\
+           \n\tsnapRevert --name X --volume <volume> --pattern --Force\t#Revert to snapshot X for volumes with names containing Y.\
+           \n\tsnapRevert --name X --Force \t\t\t\t#Revert to snapshot X wherever it is found.')
+    exit()
+
+def snapDelete_error_message():
+    print('\nThe following snapshot deletion command line options are supported:\
+           \n\tsnapDelete --name X --volume <volume>\t\t\t#Delete Snapshot X from volume Y.\
+           \n\tsnapDelete --name X --volume <volume> --pattern --Force\t#Delete Snapshot X from volumes with names containing Y.\
+           \n\tsnapDelete --name X --Force \t\t\t\t#Delete Snapshot X wherever it is found.')
+    exit()
 
 
 '''
