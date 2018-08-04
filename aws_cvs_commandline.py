@@ -28,14 +28,14 @@ def config_parser(project = None):
     
     return headers, region, url
 
-def quota_and_service_level_parser():
-    if os.path.exists('service_level_and_quotas.json'):
-        with open('service_level_and_quotas.json','r') as config_file:
+def quota_and_servicelevel_parser():
+    if os.path.exists('servicelevel_and_quotas.json'):
+        with open('servicelevel_and_quotas.json','r') as config_file:
             price_and_bw_hash = json.load(config_file)
         return price_and_bw_hash
 
     else:
-        print('\Error, the service_level_and_quotas.json file could not be found\n')
+        print('\Error, the servicelevel_and_quotas.json file could not be found\n')
         exit()
 
 def command_line():
@@ -162,7 +162,7 @@ def command_line():
                     elif arg['bandwidth'] < 0:
                         error = True
                         error_value['bw'] = 'Negative value entered'
-                    service_level, quotainbytes, bandwidthMB = service_level_and_quota_lookup(bwmb = arg['bandwidth'], gigabytes = arg['gigabytes'])
+                    servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = arg['bandwidth'], gigabytes = arg['gigabytes'])
                     local_error = cidr_rule_check(arg['cidr'])
                     if local_error == True:
                         error = True
@@ -194,7 +194,7 @@ def command_line():
                                             name = name,
                                             quota_in_bytes = quotainbytes,
                                             region = region,
-                                            service_level = service_level,
+                                            servicelevel = servicelevel,
                                             url = url)
                         else:
                             while count > 0:
@@ -206,7 +206,7 @@ def command_line():
                                                 name = name,
                                                 quota_in_bytes = quotainbytes,
                                                 region = region,
-                                                service_level = service_level,
+                                                servicelevel = servicelevel,
                                                 url = url)
                                 count -= 1
                     else:
@@ -584,6 +584,10 @@ def extract_fs_info_for_vols_by_name(fs_map_hash = None,
                                      url = url)
     pretty_hash(fs_hash)
 
+'''
+Helper function to extract attributes about each volume,
+this function call extract_mount_target_info to get the ip address associated
+'''
 def add_fs_info_for_vols_by_name(fs_hash = None,
                                  fs_map_hash = None,
                                  json_object = None,
@@ -598,6 +602,14 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
                                                       headers = headers,
                                                       mount = mount,
                                                       url = url)
+    bandwidthMB, capacityGB = bandwidth_calculator(servicelevel = fs_hash[mount]['serviceLevel'],
+                                                   quotaInBytes = int(fs_hash[mount]['quotaInBytes']))
+    if bandwidthMB is not None:
+        fs_hash[mount]['allocatedCapacityGB'] = capacityGB
+        fs_hash[mount]['availableBandwidthMB'] = bandwidthMB
+        fs_hash[mount].pop('quotaInBytes')
+        
+    
     
 '''
 Issue call to create volume
@@ -609,13 +621,13 @@ def volume_creation(bandwidth = None,
                     name = None,
                     quota_in_bytes = None,
                     region = None,
-                    service_level = None,
+                    servicelevel = None,
                     url = None):
     command =  'FileSystems'
     data = {'name':name,
         'creationToken':name,
         'region':region,
-        'servicelevel':service_level,
+        'serviceLevel':servicelevel,
         'quotaInBytes':quota_in_bytes,
         'exportPolicy':{'rules': [ { 'ruleIndex':1, 'allowedClients':cidr, 'unixReadOnly':False, 'unixReadWrite':True, 'cifs':False,'nfsv3':True, 'nfsv4':False } ] } }
     if label:
@@ -629,20 +641,20 @@ def volume_creation(bandwidth = None,
     error_check(body = json_volume_object,
                 status_code = volume_status,
                 url = url)
-    if service_level == 'basic':
-        service_level_alt = 'standard'
-    elif service_level == 'standard':
-        service_level_alt = 'premium'
-    elif service_level == 'extreme':
-        service_level_alt = 'extreme'
+    if servicelevel == 'basic':
+        servicelevel_alt = 'standard'
+    elif servicelevel == 'standard':
+        servicelevel_alt = 'premium'
+    elif servicelevel == 'extreme':
+        servicelevel_alt = 'extreme'
     print('Volume Creation submitted:\
            \n\tname:%s\
            \n\tcreationToken:/%s\
            \n\tregion:%s\
-           \n\tservice_level:%s\
-           \n\tallocated_capacity(GB):%s\
-           \n\tmax_volume_bandwidth(MB):%s'\
-           % (name,name,region,service_level_alt,int(quota_in_bytes) / 1000000000,bandwidth))
+           \n\tserviceLevel:%s\
+           \n\tallocatedCapacityGB:%s\
+           \n\tavailableBandwidthMB:%s'\
+           % (name,name,region,servicelevel_alt,int(quota_in_bytes) / 1000000000,bandwidth))
 
 '''
 Determine the best gigabytes and service level based upon input
@@ -650,18 +662,18 @@ input == bandwidth in MB, gigabytes in GB
 output == service level and gigabytes in GB
 '''
 
-def service_level_and_quota_lookup(bwmb = None, gigabytes = None):
-    service_level_and_quota_hash = quota_and_service_level_parser()
+def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
+    servicelevel_and_quota_hash = quota_and_servicelevel_parser()
 
     bwmb = float(bwmb)
     gigabytes = float(gigabytes)
-    basic_cost_per_gb = float(service_level_and_quota_hash['prices']['basic'])
-    standard_cost_per_gb = float(service_level_and_quota_hash['prices']['standard'])
-    extreme_cost_per_gb = float(service_level_and_quota_hash['prices']['extreme'])
+    basic_cost_per_gb = float(servicelevel_and_quota_hash['prices']['basic'])
+    standard_cost_per_gb = float(servicelevel_and_quota_hash['prices']['standard'])
+    extreme_cost_per_gb = float(servicelevel_and_quota_hash['prices']['extreme'])
 
-    basic_bw_per_gb = float(service_level_and_quota_hash['bandwidth']['basic'])
-    standard_bw_per_gb = float(service_level_and_quota_hash['bandwidth']['standard'])
-    extreme_bw_per_gb = float(service_level_and_quota_hash['bandwidth']['extreme'])
+    basic_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['basic'])
+    standard_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['standard'])
+    extreme_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['extreme'])
 
     '''
     if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3500MB/s. 
@@ -703,22 +715,39 @@ def service_level_and_quota_lookup(bwmb = None, gigabytes = None):
     lowest_price = min(cost_hash.values())
     for key in cost_hash.keys():
         if cost_hash[key] == lowest_price:
-            service_level = key
+            servicelevel = key
             if capacity_hash[key] < gigabytes:
                 gigabytes = int(math.ceil(gigabytes))
-                bandwidthKB = int(math.ceil(gigabytes)) * bw_hash[service_level] 
+                bandwidthKB = int(math.ceil(gigabytes)) * bw_hash[servicelevel] 
             else:
                 gigabytes =  int(math.ceil(capacity_hash[key]))
-                bandwidthKB =  int(math.ceil(capacity_hash[key])) * bw_hash[service_level]
+                bandwidthKB =  int(math.ceil(capacity_hash[key])) * bw_hash[servicelevel]
    
             '''
-            gigabytes converted from GB to Bytes
+            convert from Bytes to GB 
             '''
             gigabytes *= 1000000000
             bandwidthMB = int(bandwidthKB / 1000)
             break
 
-    return service_level, gigabytes, bandwidthMB
+    return servicelevel, gigabytes, bandwidthMB
+
+'''
+Calculate the bandwidth based upon passed in service level and quota
+'''
+def bandwidth_calculator(servicelevel = None, quotaInBytes = None):
+    servicelevel_and_quota_hash = quota_and_servicelevel_parser()
+    '''
+    gigabytes converted from Bytes to KB
+    '''
+    #quotaInBytes *= 1000000000
+    if servicelevel in servicelevel_and_quota_hash['bandwidth'].keys():
+        capacityGB = quotaInBytes / 1000000000
+        bandwidthMB = (capacityGB * servicelevel_and_quota_hash['bandwidth'][servicelevel]) / 1000
+    else:
+        bandwidthMB = None
+        capacityGB = None
+    return bandwidthMB, capacityGB
 
 '''
 check health of cidr
