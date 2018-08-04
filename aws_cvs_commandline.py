@@ -118,7 +118,9 @@ def command_line():
             elif len(fs_map_hash) > 0:
                 #@# print and capture info for specific volumes
                 vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
-                                                            json_object = json_volume_object)
+                                                            json_object = json_volume_object,
+                                                            headers = headers,
+                                                            url = url)
             else:
                 if arg['volume'] and arg['pattern']:
                     print('The volList command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
@@ -567,16 +569,35 @@ def pretty_hash(my_hash=None):
 if there is an fs_hash (which is a mapping of specific volumes to query,
 extract full volume info for those volumes, otherwise get info for all
 '''
-def extract_fs_info_for_vols_by_name(fs_map_hash = None, json_object = None):
+def extract_fs_info_for_vols_by_name(fs_map_hash = None,
+                                     json_object = None,
+                                     headers = None,
+                                     url = None):
     fs_hash = {}
     for mount in fs_map_hash.keys():
         fs_hash[mount] = {}
-        add_fs_info_for_vols_by_name(fs_hash = fs_hash, fs_map_hash = fs_map_hash, json_object = json_object, mount = mount)
+        add_fs_info_for_vols_by_name(fs_hash = fs_hash,
+                                     fs_map_hash = fs_map_hash,
+                                     json_object = json_object,
+                                     headers = headers,
+                                     mount = mount,
+                                     url = url)
     pretty_hash(fs_hash)
 
-def add_fs_info_for_vols_by_name(fs_hash = None, fs_map_hash = None, json_object = None, mount = None):
+def add_fs_info_for_vols_by_name(fs_hash = None,
+                                 fs_map_hash = None,
+                                 json_object = None,
+                                 headers = None,
+                                 mount = None,
+                                 url = None):
     for attribute in json_object[fs_map_hash[mount]['index']].keys():
        fs_hash[mount][attribute] = json_object[fs_map_hash[mount]['index']][attribute]
+       if attribute == 'fileSystemId':
+           extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash,
+                                                      fileSystemId = fs_hash[mount][attribute],
+                                                      headers = headers,
+                                                      mount = mount,
+                                                      url = url)
     
 '''
 Issue call to create volume
@@ -764,23 +785,23 @@ def volDelete_error_message():
 ##########################################################
 
 '''
-Add File system information to fs_hash, then pass hash back
-FilesystemInfo == hash containing filesysteminfo from SDK for a specific volume
-Index == the index within the higher level filesystem info dump, use this later on rather than having to crawl the json object
+Add mount target information for each volume fsid passed in
 '''
-def extract_mount_target_info_for_vols_by_name(fs_map_hash = None, json_object = None, headers = None, url = None):
-    mount_hash = {}
-    for mount in fs_map_hash.keys():
-        fsid = fs_map_hash[mount]['fileSystemId']
-        mount_hash[mount] = {}
-        mount_hash[mount]['fileSystemId'] = fsid
-        status, json_mountarget_object = submit_api_request(command = ('FileSystems/%s/MountTargets' % (fsid)), direction = 'GET', headers = headers, url = url)
-        error_check(body = json_mountarget_object,
-                    status_code = status,
-                    url = url)
-        mount_hash[mount]['ipaddress'] = json_mountarget_object[0]['ipAddress']
-    pretty_hash(mount_hash)
-    return mount_hash
+def extract_mount_target_info_for_vols_by_name(fs_hash = None,
+                                               fileSystemId = None,
+                                               headers = None,
+                                               mount = None,
+                                               url = None):
+
+    status, json_mountarget_object = submit_api_request(command = ('FileSystems/%s/MountTargets' % (fileSystemId)),
+                                                                   direction = 'GET',
+                                                                   headers = headers,
+                                                                   url = url)
+    error_check(body = json_mountarget_object,
+                status_code = status,
+                url = url)
+    for attribute in json_mountarget_object[0]: 
+        fs_hash[mount][attribute] = json_mountarget_object[0][attribute]
 
 
 
