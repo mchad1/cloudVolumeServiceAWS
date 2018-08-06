@@ -26,8 +26,8 @@ Examples:<br/>
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-west<br/>
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-east -p chad<br/>
 
-### 5) Run the utility ~/cvs-aws.py from within the virtual environment
-  $ ./cvs-aws.py
+5) Run the utility **cvs-aws.py** from within the virtual environment<br/>
+  $ **cvs-aws.py**
   
   usage: cloudvolumes.py [-h]
                        (--volCreate | --volDelete | --volList | --snapCreate | --snapDelete | --snapList | --snapRevert)
@@ -35,7 +35,5 @@ Examples:<br/>
                        [--volume VOLUME] [--region REGION] [--name NAME]
                        [--gigabytes GIGABYTES] [--bandwidth BANDWIDTH]
                        [--cidr CIDR] [--label LABEL] [--count COUNT]
-
-T
 
                 
