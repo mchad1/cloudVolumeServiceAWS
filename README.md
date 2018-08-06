@@ -1,9 +1,9 @@
 # cloudVolumeServiceAWS
 Command Line Interface for the NetApp Cloud Volume Service in AWS
 
-There are four steps to getting started:
+There are five steps to getting started:
 #### 1) initialize a virtual environment
-  $ virtualenv cloudVolumeServiceAWS
+  $ **virtualenv cloudVolumeServiceAWS**
 #### 2) Activate the virtual envrioment
   $ source cloudVolumeServiceAWS/bin/activate
 #### 3) Install the requests python library
@@ -23,4 +23,17 @@ Examples:<br/>
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-east<br/> 
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-west<br/>
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-east -p chad<br/>
+
+### 5) Run the utility ~/cvs-aws.py from within the virtual environment
+  $ ./cvs-aws.py
+  
+  usage: cloudvolumes.py [-h]
+                       (--volCreate | --volDelete | --volList | --snapCreate | --snapDelete | --snapList | --snapRevert)
+                       [--project PROJECT] [--Force] [--pattern]
+                       [--volume VOLUME] [--region REGION] [--name NAME]
+                       [--gigabytes GIGABYTES] [--bandwidth BANDWIDTH]
+                       [--cidr CIDR] [--label LABEL] [--count COUNT]
+
+T
+
                 
