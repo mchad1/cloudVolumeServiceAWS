@@ -10,7 +10,7 @@ There are four steps to getting started:
   $ pip install requests
 #### 4) Initialize the ~/aws_cvs_config file.  
   $ ~/cvs_keys.py
-usage: cvs_keys.py [-h] [--project PROJECT] [--url URL] [--secretkey SECRETKEY] [--apikey APIKEY] [--region REGION]<br/>
+usage: cvs_keys.py [-h] [-p PROJECT] [-u URL] [-s SECRETKEY] [--a APIKEY] [--r REGION]<br/>
 cvs_keys.py is used to configure the aws_cvs_config base file<br/><br/>
 optional arguments:<br/>
   -h, --help            show this help message and exit<br/>
