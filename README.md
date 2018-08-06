@@ -4,17 +4,13 @@ Command Line Interface for the NetApp Cloud Volume Service in AWS
 There are four steps to getting started:
 #### 1) initialize a virtual environment
   $ virtualenv cloudVolumeServiceAWS
-
 #### 2) Activate the virtual envrioment
   $ source cloudVolumeServiceAWS/bin/activate
-
 #### 3) Install the requests python library
   $ pip install requests
-
 #### 4) Initialize the ~/aws_cvs_config file.  
-This will enable the command line tool to interact with your CVS environment
-
-usage: cvs_keys.py [-h] [--project PROJECT] [--url URL] [--secretkey SECRETKEY] [--apikey APIKEY] [--region REGION]<br/><br/>
+  $ ~/cvs_keys.py
+usage: cvs_keys.py [-h] [--project PROJECT] [--url URL] [--secretkey SECRETKEY] [--apikey APIKEY] [--region REGION]<br/>
 cvs_keys.py is used to configure the aws_cvs_config base file<br/><br/>
 optional arguments:<br/>
   -h, --help            show this help message and exit<br/>
