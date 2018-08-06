@@ -33,7 +33,6 @@ def quota_and_servicelevel_parser():
         with open('servicelevel_and_quotas.json','r') as config_file:
             price_and_bw_hash = json.load(config_file)
         return price_and_bw_hash
-
     else:
         print('\Error, the servicelevel_and_quotas.json file could not be found\n')
         exit()
@@ -597,6 +596,7 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
     for attribute in json_object[fs_map_hash[mount]['index']].keys():
        fs_hash[mount][attribute] = json_object[fs_map_hash[mount]['index']][attribute]
        if attribute == 'fileSystemId':
+           print('attribute:%s, mount: %s' % (attribute,mount))
            extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash,
                                                       fileSystemId = fs_hash[mount][attribute],
                                                       headers = headers,
@@ -604,6 +604,7 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
                                                       url = url)
     bandwidthMB, capacityGB = bandwidth_calculator(servicelevel = fs_hash[mount]['serviceLevel'],
                                                    quotaInBytes = int(fs_hash[mount]['quotaInBytes']))
+    print('bandwidthMB:%s, capacityGB:%s' % (bandwidthMB,capacityGB))
     if bandwidthMB is not None:
         fs_hash[mount]['allocatedCapacityGB'] = capacityGB
         fs_hash[mount]['availableBandwidthMB'] = bandwidthMB
@@ -829,8 +830,15 @@ def extract_mount_target_info_for_vols_by_name(fs_hash = None,
     error_check(body = json_mountarget_object,
                 status_code = status,
                 url = url)
-    for attribute in json_mountarget_object[0]: 
-        fs_hash[mount][attribute] = json_mountarget_object[0][attribute]
+    
+    if len(json_mountarget_object) > 0:
+        for attribute in json_mountarget_object[0]: 
+            fs_hash[mount][attribute] = json_mountarget_object[0][attribute]
+    else:
+        if fs_hash[mount]['lifeCycleStateDetails'] == 'Creation in progress':
+            fs_hash[mount]['MountTarget'] = 'Creating: No Mount Target Exists'
+        else:
+            fs_hash[mount]['MountTarget'] = 'Error: No Mount Target Exists'
 
 
 
