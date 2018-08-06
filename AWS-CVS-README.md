@@ -1,13 +1,17 @@
 # CVS-AWS.py #
 ### Snapshots ###
-It can list snapshots for one to many volumes, same logic and do so based on pattern matching of volumes names (create a snapshot on one volume, a subset of volumes or all volumes)
-It can delete one to many snapshots using the same logic.
-It can create one to many snapshots using the same logic
+List snapshots (--snapList) for one to many volumes, and do so based on substring volumes names 
+Delete one to many snapshots (--snapDelete).<br/>
+Create one to many snapshots (--snapCreate).<br/>
+Revert one to many volumes (--snapRevert) again based on the logic above.<br/>
 ### volumes ###
-It can list one to many volumes, same logic
-It can delete one to many volumes, same logic
-It can snap revert one to many volumes again based on the logic above.
-It can create one to many volumes (based on –count).  The logic here is kind of neat, rather than asking for a service level it asks for bandwidth need (0 == unknown and then it sets the need to 3500MB/s which is my tested limit).  Based upon the stated capacity and bandwidth needs it determines the  most cost effective service level and sets it.  Then when its lists the results, it lists the available bandwidth as part of the output.
+List one to many volumes (--volList), same logic.<br/>
+Delete one to many volumes (--volDelete), same logic<br/>
+Create one to many volumes (--volCreate) based on –-count.<br/>
+
+### Details ####
+T
+rather than asking for a service level it asks for bandwidth need (0 == unknown and then it sets the need to 3500MB/s which is my tested limit).  Based upon the stated capacity and bandwidth needs it determines the  most cost effective service level and sets it.  Then when its lists the results, it lists the available bandwidth as part of the output.
 
 $ **cvs-aws.py -h**
 usage: cloudvolumes.py [-h]<br/>
