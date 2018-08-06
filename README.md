@@ -18,7 +18,7 @@ usage: cvs_keys.py [-h] [--project PROJECT] [--url URL] [--secretkey SECRETKEY] 
 cvs_keys.py is used to configure the aws_cvs_config base file<br/><br/>
 optional arguments:<br/>
   -h, --help            show this help message and exit<br/><br/>
-  --project PROJECT, -p PROJECT<br/>  To enable use of multiple Cloud Volume environments, enter an arbitrary project name. If none is provided, default is used<br/>
+  --project PROJECT, -p PROJECT<br/>  Enables use of multiple CV tenants.  If none is provided, default is used<br/>
   --url URL, -u URL     Enter the url for the cloud volumes api service<br/>
   --secretkey SECRETKEY, -s SECRETKEY         Enter the cloud volumes secret-key<br/>
   --apikey APIKEY, -a APIKEY                  Enter the cloud volumes api-key<br/>
