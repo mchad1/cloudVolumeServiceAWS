@@ -12,7 +12,7 @@ There are five steps to getting started:
   $ **cvs_keys.py**
 uage: cvs_keys.py [-h] [--project PROJECT] [--url URL]<br/>
                    [--secretkey SECRETKEY] [--apikey APIKEY] [--region REGION]<br/><br/>
-**cvs-keys.py is used to configure the aws_cvs_config base file **
+**cvs-keys.py is used to configure the aws_cvs_config base file**
 
 Examples:<br/>
 ~/cvs_keys.py --url https://cds-aws-bundles.netapp.com:8080/v1 -s 123456asdfgh1234556 -a fdsfghf -r us-east<br/> 
@@ -27,7 +27,7 @@ Examples:<br/>
                        [--volume VOLUME] [--region REGION] [--name NAME]<br/>
                        [--gigabytes GIGABYTES] [--bandwidth BANDWIDTH]<br/>
                        [--cidr CIDR] [--label LABEL] [--count COUNT]<br/>
- ** cvs-aws.py is a command line utility for interacting with your tenants NetApp Cloud Volumes Service.  **                      
+ **cvs-aws.py is a command line utility for interacting with your tenants NetApp Cloud Volumes Service.**                      
 
 
                 
