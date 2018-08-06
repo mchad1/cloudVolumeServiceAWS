@@ -1,13 +1,13 @@
 # CVS-AWS.py #
 ### Snapshots ###
-List snapshots (--snapList) for one to many volumes, and do so based on substring volumes names 
-Delete one to many snapshots (--snapDelete).<br/>
-Create one to many snapshots (--snapCreate).<br/>
-Revert one to many volumes (--snapRevert) again based on the logic above.<br/>
+List snapshots (--snapList) for one to many volumes, and do so based on substring volumes names<br/>
+Delete one to many snapshots (--snapDelete)<br/>
+Create one to many snapshots (--snapCreate)<br/>
+Revert one to many volumes (--snapRevert) again based on the logic above<br/>
 ### volumes ###
-List one to many volumes (--volList), same logic.<br/>
+List one to many volumes (--volList), same logic<br/>
 Delete one to many volumes (--volDelete), same logic<br/>
-Create one to many volumes (--volCreate) based on –-count.<br/>
+Create one to many volumes (--volCreate) based on –-count<br/>
 
 ### Details ####
 T
