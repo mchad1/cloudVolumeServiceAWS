@@ -29,11 +29,11 @@ Examples:<br/>
 5) Run the utility **cvs-aws.py** from within the virtual environment<br/>
   $ **cvs-aws.py**
   
-  usage: cloudvolumes.py [-h]
-                       (--volCreate | --volDelete | --volList | --snapCreate | --snapDelete | --snapList | --snapRevert)
-                       [--project PROJECT] [--Force] [--pattern]
-                       [--volume VOLUME] [--region REGION] [--name NAME]
-                       [--gigabytes GIGABYTES] [--bandwidth BANDWIDTH]
-                       [--cidr CIDR] [--label LABEL] [--count COUNT]
+  usage: cloudvolumes.py [-h]<br/>
+                       (--volCreate | --volDelete | --volList | --snapCreate | --snapDelete | --snapList | --snapRevert)<br/>
+                       [--project PROJECT] [--Force] [--pattern]<br/>
+                       [--volume VOLUME] [--region REGION] [--name NAME]<br/>
+                       [--gigabytes GIGABYTES] [--bandwidth BANDWIDTH]<br/>
+                       [--cidr CIDR] [--label LABEL] [--count COUNT]<br/>
 
                 
