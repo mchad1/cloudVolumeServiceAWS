@@ -17,7 +17,7 @@ This will enable the command line tool to interact with your CVS environment
 usage: cvs_keys.py [-h] [--project PROJECT] [--url URL] [--secretkey SECRETKEY] [--apikey APIKEY] [--region REGION]<br/><br/>
 cvs_keys.py is used to configure the aws_cvs_config base file<br/><br/>
 optional arguments:<br/>
-  -h, --help            show this help message and exit<br/><br/>
+  -h, --help            show this help message and exit<br/>
   --project PROJECT, -p PROJECT<br/>  Enables use of multiple CV tenants.  If none is provided, default is used<br/>
   --url URL, -u URL     Enter the url for the cloud volumes api service<br/>
   --secretkey SECRETKEY, -s SECRETKEY         Enter the cloud volumes secret-key<br/>
