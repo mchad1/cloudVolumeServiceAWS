@@ -38,7 +38,7 @@ def quota_and_servicelevel_parser():
         exit()
 
 def command_line():
-    parser = argparse.ArgumentParser(prog='cloudvolumes.py',description='%(prog)s is used to issue api calls on your behalf')
+    parser = argparse.ArgumentParser(prog='cvs-aws.py',description='%(prog)s is used to issue commands to your NetApp Cloud Volumes Service on your behalf.')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--volCreate',action='store_const',const=True,)
     group.add_argument('--volDelete',action='store_const',const=True,)
@@ -151,7 +151,7 @@ def command_line():
                         error = True
                         error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
                     elif int(arg['gigabytes']) < 1 or int(arg['gigabytes']) > 100000:
-                        print arg['gigabytes'] 
+                        print(arg['gigabytes'])
                         error = True
                         error_value['size'] = 'Capacity was either smaller than 1GB or greater than 100,000GB'
                     local_error = is_number(arg['bandwidth'])
@@ -554,10 +554,10 @@ def add_volumes_to_fs_hash(json_object = None, index = None, mount = None, fs_ma
 prettify the passed in hash for printing
 '''
 def pretty_hash(my_hash=None):
-    print json.dumps(my_hash,
+    print (json.dumps(my_hash,
                      sort_keys = True,
                      indent = 4,
-                     separators = (',', ': ')) 
+                     separators = (',', ': ')))
 
 
 ##########################################################
@@ -596,7 +596,6 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
     for attribute in json_object[fs_map_hash[mount]['index']].keys():
        fs_hash[mount][attribute] = json_object[fs_map_hash[mount]['index']][attribute]
        if attribute == 'fileSystemId':
-           print('attribute:%s, mount: %s' % (attribute,mount))
            extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash,
                                                       fileSystemId = fs_hash[mount][attribute],
                                                       headers = headers,
@@ -604,7 +603,6 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
                                                       url = url)
     bandwidthMB, capacityGB = bandwidth_calculator(servicelevel = fs_hash[mount]['serviceLevel'],
                                                    quotaInBytes = int(fs_hash[mount]['quotaInBytes']))
-    print('bandwidthMB:%s, capacityGB:%s' % (bandwidthMB,capacityGB))
     if bandwidthMB is not None:
         fs_hash[mount]['allocatedCapacityGB'] = capacityGB
         fs_hash[mount]['availableBandwidthMB'] = bandwidthMB
