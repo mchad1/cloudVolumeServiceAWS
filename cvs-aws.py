@@ -677,8 +677,8 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
     '''
     if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3500MB/s. 
     '''
-    if bwmb == 0 or bwmb > 3500:
-        bwmb = 3500
+    if bwmb == 0 or bwmb > 3800:
+        bwmb = 3800
     '''
     convert mb to kb
     '''
@@ -912,39 +912,5 @@ def snapDelete_error_message():
     exit()
 
 
-'''
-Main Mount Targets
-'''
-
-#@# print anc capture ip addresses for volumes
-#mount_hash = extract_mount_target_info_for_vols_by_name(fs_map_hash = fs_map_hash, json_object = json_volume_object, headers = headers, url = url)
-
 '''MAIN'''
 command_line()
-
-'''
-#Inspect AD
-elif [[ $1 == "ad" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Storage/ActiveDirectory | jq '.'
-
-#View CVS Regions
-elif [[ $1 == "regions" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Storage/Regions | jq '.'
-
-#View Zones
-elif [[ $1 == "zones" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Storage/Zones | jq '.'
-
-#View IPRanges
-elif [[ $1 == "iprange" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Storage/IPRanges | jq '.'
-
-#View Jobs
-elif [[ $1 == "jobs" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Jobs | jq '.'
-
-#View Backups
-elif [[ $1 == "backups" ]]; then
-    curl -s -H accept:application/json -H "Content-type: application/json" -H api-key:b2hpT0liU1Y1Y2hYZWVyWlJCcTh3UXpzRjI5M0pk -H secret-key:NkVsb1lMS3lNZHc3VHhjeTNwNnVtRmJwZ1NjVmpE -X GET https://cds-aws-bundles.netapp.com:8080/v1/Backups | jq '.'
-'''
-
