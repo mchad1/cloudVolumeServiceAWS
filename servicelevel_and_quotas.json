@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 { "prices":{ "basic":0.10, "standard":0.20, "extreme":0.30 },"bandwidth":{ "basic":16, "standard":64, "extreme":128 } }
+=======
+{ "prices":{ "basic":0.15, "standard":0.30, "extreme":0.45 },"bandwidth":{ "basic":16, "standard":64, "extreme":128 } }
+>>>>>>> 9851741c0c84ebbd5a76795e0867b6c2410eea6f
