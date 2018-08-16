@@ -675,7 +675,7 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
     extreme_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['extreme'])
 
     '''
-    if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3500MB/s. 
+    if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3800MB/s. 
     '''
     if bwmb == 0 or bwmb > 3800:
         bwmb = 3800
