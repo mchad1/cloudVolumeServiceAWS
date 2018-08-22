@@ -60,7 +60,7 @@ def command_line():
                                                      body must match [a-zA-Z][a-zA-Z0-9-] and be 16 - 33 character long')
     parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 1 and 100,000. Supports volCreate')
     parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0. Supports volCreate')
-    parser.add_argument('--cidr','-c',type=str,help='Volume bandwidth requirements in Megabytes per second. If unkown enter 0. Supports volCreate')
+    parser.add_argument('--cidr','-c',type=str,help='IP Range used for export rules, the format needs to be similar to 0.0.0.0/0, supports volCreate')
     parser.add_argument('--label','-l',type=str,help='Volume label. Supports volCreate')
     parser.add_argument('--count','-C',type=str,help='Specify the number of volumes to create. Supports volCreate')
     arg = vars(parser.parse_args())
@@ -794,7 +794,7 @@ def volCreate_error_message():
            \n\t--name | -n X\t\t\t\t#Name used for volume and export path\
            \n\t--gigabytes | -g [0 < X <= 100,000]\t#Allocated volume capacity in Gigabyte\
            \n\t--bandwidth | -b [0 <= X <= 3500]\t#Requested maximum volume bandwidth in Megabytes\
-           \n\t--cidr | -c 0.0.0.0\\0\t\t\t#Network with acess to exported volume')
+           \n\t--cidr | -c 0.0.0.0/0\t\t\t#Network with acess to exported volume')
     print('\nThe following flags are optional:\
            \n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
            \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
