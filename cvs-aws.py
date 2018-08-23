@@ -500,6 +500,8 @@ def submit_api_request( command = None, data = None, direction = None, headers =
         r = requests.get(url + '/' + command, headers = headers)
     elif direction == 'POST':
         r = requests.post(url + '/' + command, data = json.dumps(data), headers = headers)
+        print(r.url)
+        print(r.text)
     elif direction == 'PUT':
         r = requests.put(url + '/' + command, data = json.dumps(data), headers = headers)
     elif direction == 'DELETE':
