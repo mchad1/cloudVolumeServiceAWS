@@ -1,6 +1,8 @@
 # cloudVolumeServiceAWS
 Command Line Interface for the NetApp Cloud Volume Service in AWS
 
+**Note: This command line utillity is Beta, it has only been tested on Linux platforms**
+
 There are five steps to getting started:
 1) initialize a virtual environment<br/>
   $ **virtualenv cloudVolumeServiceAWS**

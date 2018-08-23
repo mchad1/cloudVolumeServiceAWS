@@ -81,6 +81,7 @@ def command_line():
         volume_status, json_volume_object = submit_api_request(command = 'FileSystems',
                                                                direction = 'GET',
                                                                headers = headers,
+                                                               region = region,
                                                                url = url)
         
         #@# Check for errors in base rest call
@@ -91,14 +92,14 @@ def command_line():
         #@# Map filesystem ids to names
         #fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
         if arg['volume'] and not arg['pattern']:
-            fs_map_hash = create_export_to_fsid_hash(filesystems = [arg['volume']], json_object = json_volume_object)
+            fs_map_hash = create_export_to_fsid_hash(filesystems = [arg['volume']], json_object = json_volume_object, region = region)
         elif arg['volume'] and arg['pattern']:
-            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object, region = region)
             for element in fs_map_hash.keys():
                 if arg['volume'] not in element:
                     fs_map_hash.pop(element)
         else: 
-            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object)
+            fs_map_hash = create_export_to_fsid_hash(json_object = json_volume_object, region = region)
 
 
          
@@ -119,14 +120,15 @@ def command_line():
                 vol_hash = extract_fs_info_for_vols_by_name(fs_map_hash = fs_map_hash,
                                                             json_object = json_volume_object,
                                                             headers = headers,
+                                                            region = region, 
                                                             url = url)
             else:
                 if arg['volume'] and arg['pattern']:
-                    print('The volList command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                    print('The volList command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
                 elif arg['volume']:
-                    print('The volList command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                    print('The volList command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                 else: 
-                    print('The volList command resulted in an error:\tNo volumes exist.')
+                    print('The volList command resulted in an error:\tNo volumes exist in region %s.' % (region))
                 exit()
 
         elif arg['volCreate']:
@@ -151,7 +153,6 @@ def command_line():
                         error = True
                         error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
                     elif int(arg['gigabytes']) < 1 or int(arg['gigabytes']) > 100000:
-                        print(arg['gigabytes'])
                         error = True
                         error_value['size'] = 'Capacity was either smaller than 1GB or greater than 100,000GB'
                     local_error = is_number(arg['bandwidth'])
@@ -233,6 +234,7 @@ def command_line():
                             volume_status, json_volume_delete_object = submit_api_request(command = command,
                                                                                           direction = 'DELETE', 
                                                                                           headers = headers, 
+                                                                                          region = region,
                                                                                           url = url)
                             error_check(body = json_volume_delete_object,
                                         status_code = volume_status,
@@ -240,9 +242,9 @@ def command_line():
                             print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
                     else:
                         if arg['pattern']:
-                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
                         else:
-                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                            print('The volDelete command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                         exit()
                 else:
                     volDelete_error_message()
@@ -267,17 +269,18 @@ def command_line():
             else:
                 if len(fs_map_hash) == 0: 
                     if arg['volume'] and arg['pattern']:
-                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume substring %s region %s.' % (arg['volume'],region))
                     elif arg['volume']:
-                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                        print('The snapList command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                     else: 
-                        print('The snapList command resulted in an error:\tNo volumes exist.')
+                        print('The snapList command resulted in an error:\tNo volumes exist in region %s.' % (region))
                     exit()
                 else:
                     #@# capture snapshot info for volumes
                     snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots', 
                                                                                direction = 'GET',
                                                                                headers = headers, 
+                                                                               region = region,
                                                                                url = url)
 
                     #@# Check for errors in base rest call
@@ -303,6 +306,7 @@ def command_line():
                                                                                        data = data, 
                                                                                        direction = 'POST', 
                                                                                        headers = headers, 
+                                                                                       region = region,
                                                                                        url = url)
                             #@# Check for errors in base rest call
                             error_check(body = json_snapshot_object,
@@ -312,11 +316,11 @@ def command_line():
                         exit()
                     else:
                         if arg['volume'] and arg['pattern']:
-                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
                         elif arg['volume']:
-                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                            print('The snapCreate command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                         else: 
-                            print('The snapCreate command resulted in an error:\tNo volumes exist.')
+                            print('The snapCreate command resulted in an error:\tNo volumes exist in region %s.' % (region))
                         exit()
             else:
                 print('The snapCreate command resulted in an error.\tThe required flag --name name was not specified.')
@@ -337,17 +341,18 @@ def command_line():
                 elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force'] :
                     if len(fs_map_hash) == 0: 
                         if arg['volume'] and arg['pattern']:
-                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
                         elif arg['volume']:
-                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                            print('The snapDelete command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                         else: 
-                            print('The snapDelete command resulted in an error:\tNo volumes exist.')
+                            print('The snapDelete command resulted in an error:\tNo volumes exist in region %s.' % (region))
                         exit()
                     else:
                         #@# capture snapshot info for volumes
                         snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
                                                                                    direction = 'GET',
                                                                                    headers = headers,
+                                                                                   region = region,
                                                                                    url = url)
         
                         #@# Check for errors in base rest call
@@ -371,6 +376,7 @@ def command_line():
                                         snapshot_status, json_snapshot_object = submit_api_request(command = command,
                                                                                                    direction = 'DELETE',
                                                                                                    headers = headers,
+                                                                                                   region = region,
                                                                                                    url = url)
                                         
                                         #@# Check for errors in base rest call
@@ -402,17 +408,18 @@ def command_line():
                 elif arg['volume'] and not arg['pattern'] or arg['volume'] and arg['pattern'] and arg['Force'] or arg['Force']:
                     if len(fs_map_hash) == 0: 
                         if arg['volume'] and arg['pattern']:
-                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume substring %s.' % (arg['volume']))
+                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
                         elif arg['volume']:
-                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume %s.' % (arg['volume']))
+                            print('The snapRevert command resulted in an error:\tNo volumes exist matching --volume %s in region %s.' % (arg['volume'],region))
                         else: 
-                            print('The snapRevert command resulted in an error:\tNo volumes exist.')
+                            print('The snapRevert command resulted in an error:\tNo volumes exist in region %s.' % (region))
                         exit()
                     else:
                         #@# capture snapshot info for volumes
                         snapshot_status, json_snapshot_object = submit_api_request(command = 'Snapshots',
                                                                                    direction = 'GET',
                                                                                    headers = headers,
+                                                                                   region = region,
                                                                                    url = url)
                         #@# Check for errors in base rest call
                         error_check(body = json_snapshot_object,
@@ -437,6 +444,7 @@ def command_line():
                                                                                                    data = data,
                                                                                                    direction = 'POST',
                                                                                                    headers = headers,
+                                                                                                   region = region,
                                                                                                    url = url)
                                     
                                         #@# Check for errors in base rest call
@@ -495,18 +503,25 @@ def is_ord(my_string = None, position = None):
 '''
 Get the the json object for working with again and again
 '''
-def submit_api_request( command = None, data = None, direction = None, headers = None, url = None):
+def submit_api_request( command = None, data = None, direction = None, headers = None, region = None, url = None):
     if direction == 'GET':
         r = requests.get(url + '/' + command, headers = headers)
+        api_error_print(region = region, request = r)
     elif direction == 'POST':
         r = requests.post(url + '/' + command, data = json.dumps(data), headers = headers)
-        print(r.url)
-        print(r.text)
+        api_error_print(region = region, request = r)
     elif direction == 'PUT':
         r = requests.put(url + '/' + command, data = json.dumps(data), headers = headers)
+        api_error_print(region = region, request = r)
     elif direction == 'DELETE':
         r = requests.delete(url + '/' + command, headers = headers)
+        api_error_print(region = region, request = r)
     return r.status_code,r.json()
+
+#Error Printing If API Call Triggered Error
+def api_error_print(region = None, request = None):
+    if 'message' in request.json():
+        print('SDE returned error code %s for command in region %s' % (request.json()['code'],region)) 
 
 '''
 For now exit if error code != 200
@@ -514,11 +529,11 @@ For now exit if error code != 200
 def error_check(status_code = None, body = None, url = None): 
     if status_code < 200 or status_code >= 300:
         if status_code == 404:
-            print('The specified url could not be found (404):\tcheck validity of the url.\nurl: %s\nmessage: %s' % (url,body['message']))
+            print('\tThe specified url could not be found (404):\tcheck validity of the url.\nurl: %s\nmessage: %s' % (url,body['message']))
         elif status_code == 403:
-            print('Access to the specified url is forbidden (403):\tcheck validity of apikey and secretkey')
+            print('\tAccess to the specified url is forbidden (403):\tcheck validity of apikey and secretkey')
         else:
-            print('%s' % (body['message']))
+            print('\t%s' % (body['message']))
         exit()
 
 '''
@@ -527,17 +542,18 @@ key == export name
 value == [filesystem id, index position inside base json object]
 return == hash of export names : [filesystem id, index position]
 '''
-def create_export_to_fsid_hash(filesystems = None, json_object = None):
+def create_export_to_fsid_hash(filesystems = None, json_object = None, region = None):
     fs_map_hash = {}
     if filesystems is not None:
         for mount in filesystems:
             for idx in range(0,len(json_object)):
-                if mount == json_object[idx]['creationToken']:
+                if mount == json_object[idx]['creationToken'] and region == json_object[idx]['region']:
                     add_volumes_to_fs_hash(json_object = json_object, index = idx, mount = mount, fs_map_hash = fs_map_hash)
     else:
         for idx in range(0,len(json_object)):
-            mount = json_object[idx]['creationToken']
-            add_volumes_to_fs_hash(json_object = json_object, index = idx, mount = mount, fs_map_hash = fs_map_hash)
+            if json_object[idx]['region'] == region:
+                mount = json_object[idx]['creationToken']
+                add_volumes_to_fs_hash(json_object = json_object, index = idx, mount = mount, fs_map_hash = fs_map_hash)
     return fs_map_hash
 
 
@@ -573,6 +589,7 @@ extract full volume info for those volumes, otherwise get info for all
 def extract_fs_info_for_vols_by_name(fs_map_hash = None,
                                      json_object = None,
                                      headers = None,
+                                     region = None,
                                      url = None):
     fs_hash = {}
     for mount in fs_map_hash.keys():
@@ -582,6 +599,7 @@ def extract_fs_info_for_vols_by_name(fs_map_hash = None,
                                      json_object = json_object,
                                      headers = headers,
                                      mount = mount,
+                                     region = region,
                                      url = url)
     pretty_hash(fs_hash)
 
@@ -594,6 +612,7 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
                                  json_object = None,
                                  headers = None,
                                  mount = None,
+                                 region = None,
                                  url = None):
     for attribute in json_object[fs_map_hash[mount]['index']].keys():
        fs_hash[mount][attribute] = json_object[fs_map_hash[mount]['index']][attribute]
@@ -602,6 +621,7 @@ def add_fs_info_for_vols_by_name(fs_hash = None,
                                                       fileSystemId = fs_hash[mount][attribute],
                                                       headers = headers,
                                                       mount = mount,
+                                                      region = region,
                                                       url = url)
     bandwidthMB, capacityGB = bandwidth_calculator(servicelevel = fs_hash[mount]['serviceLevel'],
                                                    quotaInBytes = int(fs_hash[mount]['quotaInBytes']))
@@ -638,6 +658,7 @@ def volume_creation(bandwidth = None,
                                                            data = data, 
                                                            direction = 'POST', 
                                                            headers = headers,
+                                                           region = region,
                                                            url = url )
     error_check(body = json_volume_object,
                 status_code = volume_status,
@@ -821,11 +842,13 @@ def extract_mount_target_info_for_vols_by_name(fs_hash = None,
                                                fileSystemId = None,
                                                headers = None,
                                                mount = None,
+                                               region = None,
                                                url = None):
 
     status, json_mountarget_object = submit_api_request(command = ('FileSystems/%s/MountTargets' % (fileSystemId)),
                                                                    direction = 'GET',
                                                                    headers = headers,
+                                                                   region = region,
                                                                    url = url)
     error_check(body = json_mountarget_object,
                 status_code = status,
