@@ -75,6 +75,11 @@ def command_line():
         project = 'default'
     headers, region, url = config_parser(project = project)
     
+    #Preview sets of the automation to simulate the command and return simulated results, if not entered assume False
+    if arg['preview']:
+        preview = True
+    else:
+        preview = False
 
     #Use the region specified in the command line if present, otherwise go with that returned in the config file
     if arg['region']:
@@ -197,6 +202,7 @@ def command_line():
                                             headers = headers,
                                             label = label,
                                             name = name,
+                                            preview = preview,
                                             quota_in_bytes = quotainbytes,
                                             region = region,
                                             servicelevel = servicelevel,
@@ -209,6 +215,7 @@ def command_line():
                                                 headers = headers,
                                                 label = label,
                                                 name = name,
+                                                preview = preview,
                                                 quota_in_bytes = quotainbytes,
                                                 region = region,
                                                 servicelevel = servicelevel,
@@ -236,15 +243,18 @@ def command_line():
                         for volume in fs_map_hash.keys():
                             fileSystemId = fs_map_hash[volume]['fileSystemId']
                             command = 'FileSystems/' + fileSystemId
-                            volume_status, json_volume_delete_object = submit_api_request(command = command,
-                                                                                          direction = 'DELETE', 
-                                                                                          headers = headers, 
-                                                                                          region = region,
-                                                                                          url = url)
-                            error_check(body = json_volume_delete_object,
-                                        status_code = volume_status,
-                                        url = url)
-                            print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
+                            if preview is False:
+                                volume_status, json_volume_delete_object = submit_api_request(command = command,
+                                                                                              direction = 'DELETE', 
+                                                                                              headers = headers, 
+                                                                                              region = region,
+                                                                                              url = url)
+                                error_check(body = json_volume_delete_object,
+                                            status_code = volume_status,
+                                            url = url)
+                                print('Volume Deletion submitted:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
+                            else:
+                                print('Volume Deletion simulated:\n\tvolume:%s:\n\tfileSystemId:%s' % (volume,fileSystemId))
                     else:
                         if arg['pattern']:
                             print('The volDelete command resulted in an error:\tNo volumes exist matching --volume substring %s in region %s.' % (arg['volume'],region))
@@ -307,17 +317,20 @@ def command_line():
                     if len(fs_map_hash) > 0:
                         for volume in fs_map_hash.keys():
                             command = 'FileSystems/' + fs_map_hash[volume]['fileSystemId'] + '/Snapshots'
-                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                       data = data, 
-                                                                                       direction = 'POST', 
-                                                                                       headers = headers, 
-                                                                                       region = region,
-                                                                                       url = url)
-                            #@# Check for errors in base rest call
-                            error_check(body = json_snapshot_object,
-                                        status_code = snapshot_status,
-                                        url = url)
-                            print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
+                            if preview is False:
+                                snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                           data = data, 
+                                                                                           direction = 'POST', 
+                                                                                           headers = headers, 
+                                                                                           region = region,
+                                                                                           url = url)
+                                #@# Check for errors in base rest call
+                                error_check(body = json_snapshot_object,
+                                            status_code = snapshot_status,
+                                            url = url)
+                                print('Snapshot Creation submitted:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
+                            else:
+                                print('Snapshot Creation simulated:\n\tvolume:%s:\n\tname:%s' % (volume,arg['name']))
                         exit()
                     else:
                         if arg['volume'] and arg['pattern']:
@@ -378,20 +391,22 @@ def command_line():
                                         snapshotId = fs_snap_hash[volume]['snapshots'][index]['snapshotId']
                                         fileSystemId = fs_map_hash[volume]['fileSystemId']
                                         command = 'FileSystems/' + fileSystemId + '/Snapshots/' + snapshotId
-                                        snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                                   direction = 'DELETE',
-                                                                                                   headers = headers,
-                                                                                                   region = region,
-                                                                                                   url = url)
+                                        if preview is False:
+                                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                                       direction = 'DELETE',
+                                                                                                       headers = headers,
+                                                                                                       region = region,
+                                                                                                       url = url)
                                         
-                                        #@# Check for errors in base rest call
-                                        error_check(body = json_snapshot_object,
-                                                    status_code = snapshot_status,
-                                                    url = url)
-                                        print('Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                            #@# Check for errors in base rest call
+                                            error_check(body = json_snapshot_object,
+                                                        status_code = snapshot_status,
+                                                        url = url)
+                                            print('Snapshot Deletion submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                        else:
+                                            print('Snapshot Deletion simulated for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
                                         tracking_deletions += 1 
-                            exit()
-    
+                                exit()
                         if tracking_deletions == 0:
                             print('The snapDelete command resulted in zero deletions: :\tNo volumes contained snapshot %s' % (arg['name']))
                         exit()
@@ -445,18 +460,21 @@ def command_line():
                                         fileSystemId = fs_map_hash[volume]['fileSystemId']
                                         command = 'FileSystems/' + fileSystemId + '/Revert'
                                         data = {'region':region,'snapshotId':snapshotId, 'fileSystemId':fileSystemId}
-                                        snapshot_status, json_snapshot_object = submit_api_request(command = command,
-                                                                                                   data = data,
-                                                                                                   direction = 'POST',
-                                                                                                   headers = headers,
-                                                                                                   region = region,
-                                                                                                   url = url)
+                                        if preview is False:
+                                            snapshot_status, json_snapshot_object = submit_api_request(command = command,
+                                                                                                       data = data,
+                                                                                                       direction = 'POST',
+                                                                                                       headers = headers,
+                                                                                                       region = region,
+                                                                                                       url = url)
                                     
-                                        #@# Check for errors in base rest call
-                                        error_check(body = json_snapshot_object,
-                                                    status_code = snapshot_status,
-                                                    url = url)
-                                        print('Snapshot Revert submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                            #@# Check for errors in base rest call
+                                            error_check(body = json_snapshot_object,
+                                                        status_code = snapshot_status,
+                                                        url = url)
+                                            print('Snapshot Revert submitted for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
+                                        else:
+                                            print('Snapshot Revert simulated for snapshot %s:\n\tvolume:%s\n\tsnapshot:%s' % (arg['name'],volume,snapshotId))
                                         tracking_reversions += 1 
                             exit()
                         if tracking_reversions == 0:
@@ -645,6 +663,7 @@ def volume_creation(bandwidth = None,
                     headers = None,
                     label = None,
                     name = None,
+                    preview = None,
                     quota_in_bytes = None,
                     region = None,
                     servicelevel = None,
@@ -659,29 +678,34 @@ def volume_creation(bandwidth = None,
     if label:
         data['labels'] = [label]
 
-    volume_status, json_volume_object = submit_api_request(command = command,
-                                                           data = data, 
-                                                           direction = 'POST', 
-                                                           headers = headers,
-                                                           region = region,
-                                                           url = url )
-    error_check(body = json_volume_object,
-                status_code = volume_status,
-                url = url)
+    if preview is False:
+        volume_status, json_volume_object = submit_api_request(command = command,
+                                                               data = data, 
+                                                               direction = 'POST', 
+                                                               headers = headers,
+                                                               region = region,
+                                                               url = url )
+        error_check(body = json_volume_object,
+                    status_code = volume_status,
+                    url = url)
+    
     if servicelevel == 'basic':
         servicelevel_alt = 'standard'
     elif servicelevel == 'standard':
         servicelevel_alt = 'premium'
     elif servicelevel == 'extreme':
         servicelevel_alt = 'extreme'
-    print('Volume Creation submitted:\
-           \n\tname:%s\
-           \n\tcreationToken:/%s\
-           \n\tregion:%s\
-           \n\tserviceLevel:%s\
-           \n\tallocatedCapacityGB:%s\
-           \n\tavailableBandwidthMB:%s'\
-           % (name,name,region,servicelevel_alt,int(quota_in_bytes) / 1000000000,bandwidth))
+    if preview is True:
+        print('Volume Creation simlated:')
+    else:
+        print('Volume Creation submitted:')
+    print('\tname:%s\
+          \n\tcreationToken:/%s\
+          \n\tregion:%s\
+          \n\tserviceLevel:%s\
+          \n\tallocatedCapacityGB:%s\
+          \n\tavailableBandwidthMB:%s'\
+          % (name,name,region,servicelevel_alt,int(quota_in_bytes) / 1000000000,bandwidth))
 
 '''
 Determine the best gigabytes and service level based upon input
@@ -828,12 +852,13 @@ def volCreate_error_message():
            \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
            \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume')
     print('\t--label | -l X\t\t\t\t#Additional metadata for the volume(s)')
+    print('\t--preview | -l X\t\t\t\t#results is a simulated rather than actual volume creation')
     exit()
 
 def volDelete_error_message():
     print('\nThe following vol deletion command line options are supported:\
-           \n\tvolDelete --name X --volume <volume>\t\t\t#Delete volume X\
-           \n\tvolDelete --name X --volume <volume> --pattern --Force\t#Delete volumes with names containing substring X')
+           \n\tvolDelete --name X --volume <volume> [--preview]\t\t\t#Delete volume X\
+           \n\tvolDelete --name X --volume <volume> --pattern --Force [--preview]\t#Delete volumes with names containing substring X')
     exit()
 
 ##########################################################
@@ -922,23 +947,23 @@ def snapList_error_message():
 
 def snapCreate_error_message():
     print('\nThe following snapshot creation command line options are supported:\
-           \n\tsnapCreate --name X --volume <volume>\t\t#Create snapshot X on volume Y.\
-           \n\tsnapCreate --name X --volume <volume> --pattern\t#Create snapshot X on volumes with names containing substring Y.\
-           \n\tsnapCreate --name X\t\t\t\t#Create snapshot X on all volumes.')
+           \n\tsnapCreate --name X --volume <volume> [--preview]\t\t#Create snapshot X on volume Y.\
+           \n\tsnapCreate --name X --volume <volume> --pattern [--preview]\t#Create snapshot X on volumes with names containing substring Y.\
+           \n\tsnapCreate --name X [--preview]\t\t\t\t#Create snapshot X on all volumes.')
     exit()
     
 def snapRevert_error_message():
     print('\nThe following snapshot reversion command line options are supported:\
-           \n\tsnapRevert --name X --volume <volume>\t\t\t#Revert to Snapshot X for volume Y.\
-           \n\tsnapRevert --name X --volume <volume> --pattern --Force\t#Revert to snapshot X for volumes with names containing Y.\
-           \n\tsnapRevert --name X --Force \t\t\t\t#Revert to snapshot X wherever it is found.')
+           \n\tsnapRevert --name X --volume <volume> [--preview]\t\t\t#Revert to Snapshot X for volume Y.\
+           \n\tsnapRevert --name X --volume <volume> --pattern --Force [--preview]\t#Revert to snapshot X for volumes with names containing Y.\
+           \n\tsnapRevert --name X --Force  [--preview]\t\t\t\t#Revert to snapshot X wherever it is found.')
     exit()
 
 def snapDelete_error_message():
     print('\nThe following snapshot deletion command line options are supported:\
-           \n\tsnapDelete --name X --volume <volume>\t\t\t#Delete Snapshot X from volume Y.\
-           \n\tsnapDelete --name X --volume <volume> --pattern --Force\t#Delete Snapshot X from volumes with names containing Y.\
-           \n\tsnapDelete --name X --Force \t\t\t\t#Delete Snapshot X wherever it is found.')
+           \n\tsnapDelete --name X --volume <volume> [--preview]\t\t\t#Delete Snapshot X from volume Y.\
+           \n\tsnapDelete --name X --volume <volume> --pattern --Force [--preview]\t#Delete Snapshot X from volumes with names containing Y.\
+           \n\tsnapDelete --name X --Force  [--preview]\t\t\t\t#Delete Snapshot X wherever it is found.')
     exit()
 
 
