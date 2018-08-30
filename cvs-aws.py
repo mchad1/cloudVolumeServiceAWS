@@ -48,22 +48,27 @@ def command_line():
     group.add_argument('--snapList', action='store_const',const=True,)
     group.add_argument('--snapRevert', action='store_const',const=True,)
     parser.add_argument('--project','-p',type=str,help='Enter the project name to interact with, otherwise the default project is selected')
+    parser.add_argument('--preview', action='store_const',const=True,help='If specfied, a try befor your buy simulation is run rather than\
+                                                                         the actual command. Supports all delete and create commands.')
     parser.add_argument('--Force', action='store_const',const=True,help='If specfied, enables substring\'s to work *Delete and Revert\
                                                                          operations. Supports all *Delete operations as well as snapRevert.')
     parser.add_argument('--pattern','-P',action='store_const',const=True,help='Search for volumes using name as substring.\
                                                                                Supports snapList and volList nativley, snapDelete\
                                                                                and volDelete as well as snapRevert with --Force.\n\n')
-    parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
+    parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for, names must be between 16 and 33 characters in length' )
     parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, specify only if different than that\
                                                        listed already in the aws_cvs_config.json file. Supports snapCreate and volCreate')
     parser.add_argument('--name','-n',type=str,help='Specify the object name to create.  Supports snap* and volCreate. When used with volCreate,\
                                                      body must match [a-zA-Z][a-zA-Z0-9-] and be 16 - 33 character long')
     parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 1 and 100,000. Supports volCreate')
-    parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0. Supports volCreate')
+    parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0 and maximum\
+                                                     bandwidth is assigned. Supports volCreate')
     parser.add_argument('--cidr','-c',type=str,help='IP Range used for export rules, the format needs to be similar to 0.0.0.0/0, supports volCreate')
     parser.add_argument('--label','-l',type=str,help='Volume label. Supports volCreate')
     parser.add_argument('--count','-C',type=str,help='Specify the number of volumes to create. Supports volCreate')
     arg = vars(parser.parse_args())
+
+    #Use the specified project if given, if not given use the default project
     if arg['project']:
         project = arg['project']
     else:
@@ -139,10 +144,10 @@ def command_line():
     
                     if len(arg['name']) < 15:
                         error = True
-                        error_value['name_length'] = 'Name length is too short'
+                        error_value['name_length'] = ('Volume Name length is too short: %s, names must be => 15 and <= 33 characters' % (len(arg['name'])))
                     if len(arg['name']) > 33:
                         error = True
-                        error_value['name_length'] = 'Name length is too long'
+                        error_value['name_length'] = ('Volume Name length is too long: %s, names must be => 15 and <= 33 characters' % (len(arg['name'])))
                     for index in range(0,len(arg['name'])):
                         local_error = is_ord(my_string = arg['name'][index], position = index)
                         if local_error == True:
@@ -161,12 +166,12 @@ def command_line():
                         error_value['bw_integer'] = 'Bandwidth was not a numeric value'
                     elif arg['bandwidth'] < 0:
                         error = True
-                        error_value['bw'] = 'Negative value entered'
+                        error_value['bw'] = ('Negative value entered: %s, requested values must be => 0.  If value == 0 or value > 3800 then maximum bandwidth will be assigned' % (arg['bandwidth']))
                     servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = arg['bandwidth'], gigabytes = arg['gigabytes'])
                     local_error = cidr_rule_check(arg['cidr'])
                     if local_error == True:
                         error = True
-                        error_value['cidr'] = 'Cidr rule is incorrect'
+                        error_value['cidr'] = ('Cidr rule is incorrect: %s, value must be in the form of X.X.X.X/X where all values for X are between 0 and 255' % (arg['cidr']))
                     if arg['count']: 
                         local_error = is_number(arg['count'])
                         if local_error == True:
