@@ -837,7 +837,7 @@ def cidr_rule_check(cidr=None):
 def volList_error_message():
     print('\nThe following vol list command line options are supported:\
            \n\tvolList --volume <volume>\t\t\t#Return information about volume X\
-           \n\tvolList --name X --volume <volume> --pattern\t#Return information about volumes with names containing substring X\
+           \n\tvolList --volume <volume> --pattern\t#Return information about volumes with names containing substring X\
            \n\tvolList\t\t\t\t\t\t#Return information about volumes with names containing substring X')
     exit()
 
