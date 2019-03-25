@@ -81,12 +81,12 @@ def command_line():
                                                                                and volDelete as well as snapRevert with --Force.\n\n')
     parser.add_argument('--snapPattern','-S',action='store_const',const=True,help='Search for snapshots using name as substring.\
                                                                                Supports snap*.\n\n')
-    parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for, names must be between 16 and 33 characters in length' )
+    parser.add_argument('--volume','-v', type=str,help='Enter a volume name to search for' )
     parser.add_argument('--region','-r',type=str,help='Specify the region when performing creation operations, specify only if different than that\
                                                        listed already in the aws_cvs_config.json file. Supports snapCreate and volCreate')
     parser.add_argument('--name','-n',type=str,help='Specify the object name to create.  Supports snap* and volCreate. When used with volCreate,\
-                                                     body must match [a-zA-Z][a-zA-Z0-9-] and be 16 - 33 character long')
-    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 1 and 100,000. Supports volCreate')
+                                                     body must match [a-zA-Z][a-zA-Z0-9-]')
+    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 100 and 100,000. Supports volCreate')
     parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0 and maximum\
                                                      bandwidth is assigned. Supports volCreate')
     parser.add_argument('--cidr','-c',type=str,help='IP Range used for export rules, the format needs to be similar to 0.0.0.0/0, supports volCreate')
