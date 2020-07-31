@@ -11,27 +11,6 @@ from time import sleep
 from  datetime import datetime
 from os.path import expanduser
 
-def config_parser(project = None):
-    home = expanduser("~")
-    if os.path.exists(home + '/aws_cvs_config'):
-        with open(home + '/aws_cvs_config','r') as config_file:
-            temp = json.load(config_file)
-        if project not in temp.keys():
-            print('\nSpecified project was not found in aws_cvs_config: %s\n\nPlease check your input and try again\n' % (project))
-            exit()
-        
-        headers = {}
-        headers['api-key'] = temp[project]['apikey']
-        headers['secret-key'] = temp[project]['secretkey']
-        headers['content-type'] = 'application/json'
-        url = temp[project]['url']
-        region = temp[project]['region']
-    else:
-        print('aws_cvs_config not found, please run cvs_keys.py before proceeding\n')
-        exit()
-    
-    return headers, region, url
-
 def quota_and_servicelevel_parser():
     if os.path.exists('servicelevel_and_quotas.json'):
         with open('servicelevel_and_quotas.json','r') as config_file:
@@ -111,6 +90,7 @@ def volCreate(
             error = True
             error_value['bw'] = ('Negative value entered: %s, requested values must be => 0.  If value == 0 or value > 4500 then maximum bandwidth will be assigned' % (bandwidth))
         servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
+        print('Bandwidth: %s, GB: %s'%(bandwidth,gigabytes))
  
         if error == False: 
             name = name
@@ -128,6 +108,9 @@ def volCreate(
             print('The volCreate command failed, see the following json output for the cause:\n')
             pretty_hash(error_value)
             volCreate_error_message()
+    else:
+        print('Error Bandwidth: %s, GB: %s'%(bandwidth,gigabytes))
+
 
 ##########################################################
 #                     Primary Functions
@@ -228,6 +211,7 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
 
     bwmb = float(bwmb)
     gigabytes = float(gigabytes)
+    print(servicelevel_and_quota_hash)
     basic_cost_per_gb = float(servicelevel_and_quota_hash['prices']['basic'])
     standard_cost_per_gb = float(servicelevel_and_quota_hash['prices']['standard'])
     extreme_cost_per_gb = float(servicelevel_and_quota_hash['prices']['extreme'])

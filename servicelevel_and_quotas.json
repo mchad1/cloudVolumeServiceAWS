@@ -1,0 +1,17 @@
+{
+    "firstName": "Jane",
+    "lastName": "Doe",
+    "hobbies": ["running", "sky diving", "singing"],
+    "age": 35,
+    "prices": [
+        {
+            "standard": 0.15,
+            "premium": 0.30,
+            "ultra": 0.40
+        },
+        {
+            "firstName": "Bob",
+            "age": 8
+        }
+    ]
+}
