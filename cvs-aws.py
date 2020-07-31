@@ -79,7 +79,7 @@ def command_line():
         gigabytes = None
 
 
-    elif arg['volCreate']:
+    if  arg['volCreate']:
         volCreate( bandwidth = bandwidth, gigabytes = gigabytes)
         
         ##########################################################
@@ -92,48 +92,42 @@ def volCreate(
             gigabytes = None,
            ):
 
-    if name:
-        if gigabytes and bandwidth and cidr and name and region:
-            error = False 
-            error_value = {}
-   
-            local_error = is_number(gigabytes)
-            if local_error == True:
-                error = True
-                error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
-            elif int(gigabytes) < 100 or int(gigabytes) > 100000:
-                error = True
-                error_value['size'] = 'Capacity was either smaller than 100GB or greater than 100,000GB'
-            local_error = is_number(bandwidth)
-            if local_error == True:
-                error = True
-                error_value['bw_integer'] = 'Bandwidth was not a numeric value'
-            elif int(bandwidth) < 0:
-                error = True
-                error_value['bw'] = ('Negative value entered: %s, requested values must be => 0.  If value == 0 or value > 4500 then maximum bandwidth will be assigned' % (bandwidth))
-            servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
+    if gigabytes and bandwidth:
+        error = False 
+        error_value = {}
   
-            if error == False: 
-                name = name
-                volume_creation(bandwidth = bandwidthMB,
-                                cidr = cidr,
-                                headers = headers,
-                                label = label,
-                                name = name,
-                                preview = preview,
-                                quota_in_bytes = quotainbytes,
-                                region = region,
-                                servicelevel = servicelevel,
-                                url = url)
-            else:
-                print('The volCreate command failed, see the following json output for the cause:\n')
-                pretty_hash(error_value)
-                volCreate_error_message()
+        local_error = is_number(gigabytes)
+        if local_error == True:
+            error = True
+            error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
+        elif int(gigabytes) < 100 or int(gigabytes) > 100000:
+            error = True
+            error_value['size'] = 'Capacity was either smaller than 100GB or greater than 100,000GB'
+        local_error = is_number(bandwidth)
+        if local_error == True:
+            error = True
+            error_value['bw_integer'] = 'Bandwidth was not a numeric value'
+        elif int(bandwidth) < 0:
+            error = True
+            error_value['bw'] = ('Negative value entered: %s, requested values must be => 0.  If value == 0 or value > 4500 then maximum bandwidth will be assigned' % (bandwidth))
+        servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
+ 
+        if error == False: 
+            name = name
+            volume_creation(bandwidth = bandwidthMB,
+                            cidr = cidr,
+                            headers = headers,
+                            label = label,
+                            name = name,
+                            preview = preview,
+                            quota_in_bytes = quotainbytes,
+                            region = region,
+                            servicelevel = servicelevel,
+                            url = url)
         else:
+            print('The volCreate command failed, see the following json output for the cause:\n')
+            pretty_hash(error_value)
             volCreate_error_message()
-    else:   
-        print('The volCreate command resulted in an error.\tThe required flag --name was not specified.')
-        volCreate_error_message()
 
 ##########################################################
 #                     Primary Functions
