@@ -40,7 +40,7 @@ def command_line():
     parser = argparse.ArgumentParser(prog='cvs-aws.py',description='%(prog)s is used to issue commands to your NetApp Cloud Volumes Service on your behalf.')
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('--volCreate',action='store_const',const=True,)
-    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 100 and 100,000. Supports volCreate')
+    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 100 and 102,400. Supports volCreate')
     parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0 and maximum\
                                                      bandwidth is assigned. Supports volCreate')
     arg = vars(parser.parse_args())
@@ -79,9 +79,9 @@ def volCreate(
         if local_error == True:
             error = True
             error_value['gigabytes_integer'] = 'Capacity was not a numeric value'
-        elif int(gigabytes) < 100 or int(gigabytes) > 100000:
+        elif int(gigabytes) < 100 or int(gigabytes) > 102400:
             error = True
-            error_value['size'] = 'Capacity was either smaller than 100GB or greater than 100,000GB'
+            error_value['size'] = 'Capacity was either smaller than 100GiB or greater than 102,400GiB'
         local_error = is_number(bandwidth)
         if local_error == True:
             error = True
@@ -89,27 +89,20 @@ def volCreate(
         elif int(bandwidth) < 0:
             error = True
             error_value['bw'] = ('Negative value entered: %s, requested values must be => 0.  If value == 0 or value > 4500 then maximum bandwidth will be assigned' % (bandwidth))
-        servicelevel, quotainbytes, bandwidthMB = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
-        print('Bandwidth: %s, GB: %s'%(bandwidth,gigabytes))
+        servicelevel, quotainbytes, bandwidthMiB, cost = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
  
         if error == False: 
-            name = name
-            volume_creation(bandwidth = bandwidthMB,
-                            cidr = cidr,
-                            headers = headers,
-                            label = label,
-                            name = name,
-                            preview = preview,
+            volume_creation(bandwidth = bandwidthMiB,
+                            cost = cost,
                             quota_in_bytes = quotainbytes,
-                            region = region,
-                            servicelevel = servicelevel,
-                            url = url)
+                            servicelevel = servicelevel
+                            )
         else:
             print('The volCreate command failed, see the following json output for the cause:\n')
             pretty_hash(error_value)
             volCreate_error_message()
     else:
-        print('Error Bandwidth: %s, GB: %s'%(bandwidth,gigabytes))
+        print('Error Bandwidth: %s, GiB: %s'%(bandwidth,gigabytes))
 
 
 ##########################################################
@@ -147,63 +140,22 @@ def is_ord(my_string = None, position = None):
 #                     Volume Functions
 ##########################################################
  
-
-'''
-Helper function to extract attributes about each volume,
-this function call extract_mount_target_info to get the ip address associated
-'''
-def add_fs_info_for_vols_by_name(fs_hash = None,
-                                 fs_map_hash = None,
-                                 json_object = None,
-                                 headers = None,
-                                 mount = None,
-                                 region = None,
-                                 url = None):
-    for attribute in json_object[fs_map_hash[mount]['index']].keys():
-       fs_hash[mount][attribute] = json_object[fs_map_hash[mount]['index']][attribute]
-       if attribute == 'fileSystemId':
-           extract_mount_target_info_for_vols_by_name(fs_hash = fs_hash,
-                                                      fileSystemId = fs_hash[mount][attribute],
-                                                      headers = headers,
-                                                      mount = mount,
-                                                      region = region,
-                                                      url = url)
-       if attribute == 'created':
-           fs_hash[mount]['epochTime'] = date_to_epoch(created = fs_hash[mount][attribute])
-
-    bandwidthMB, capacityGB = bandwidth_calculator(servicelevel = fs_hash[mount]['serviceLevel'],
-                                                   quotaInBytes = int(fs_hash[mount]['quotaInBytes']))
-    if bandwidthMB is not None:
-        fs_hash[mount]['allocatedCapacityGB'] = capacityGB
-        fs_hash[mount]['availableBandwidthMB'] = bandwidthMB
-        fs_hash[mount].pop('quotaInBytes')
-        
-    
-    
 '''
 Issue call to create volume
 '''
 def volume_creation(bandwidth = None,
+                    cost = None,
                     quota_in_bytes = None,
                     servicelevel = None):
-    if servicelevel == 'basic':
-        servicelevel_alt = 'standard'
-    elif servicelevel == 'standard':
-        servicelevel_alt = 'premium'
-    elif servicelevel == 'extreme':
-        servicelevel_alt = 'extreme'
-    print('\tname:%s\
-          \n\tcreationToken:/%s\
-          \n\tregion:%s\
-          \n\tserviceLevel:%s\
-          \n\tallocatedCapacityGB:%s\
-          \n\tavailableBandwidthMB:%s'\
-          % (name,name,region,servicelevel_alt,int(quota_in_bytes) / 1000000000,bandwidth))
+    print('\n\tserviceLevel:%s ($%s)\
+          \n\tallocatedCapacityGiB:%s\
+          \n\tavailableBandwidthMiB:%s'
+          % (servicelevel,cost,int(quota_in_bytes) / 2**30,bandwidth))
 
 '''
 Determine the best gigabytes and service level based upon input
-input == bandwidth in MB, gigabytes in GB
-output == service level and gigabytes in GB
+input == bandwidth in MiB, gigabytes in GiB
+output == service level and gigabytes in GiB
 '''
 
 def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
@@ -211,71 +163,71 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
 
     bwmb = float(bwmb)
     gigabytes = float(gigabytes)
-    print(servicelevel_and_quota_hash)
-    basic_cost_per_gb = float(servicelevel_and_quota_hash['prices']['basic'])
     standard_cost_per_gb = float(servicelevel_and_quota_hash['prices']['standard'])
-    extreme_cost_per_gb = float(servicelevel_and_quota_hash['prices']['extreme'])
+    premium_cost_per_gb = float(servicelevel_and_quota_hash['prices']['premium'])
+    ultra_cost_per_gb = float(servicelevel_and_quota_hash['prices']['ultra'])
 
-    basic_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['basic'])
     standard_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['standard'])
-    extreme_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['extreme'])
+    premium_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['premium'])
+    ultra_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['ultra'])
 
     '''
-    if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3800MB/s. 
+    if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3800MiB/s. 
     '''
     if bwmb == 0 or bwmb > 4500:
         bwmb = 4500 
     '''
     convert mb to kb
     '''
-    bwkb = bwmb * 1000.0
+    bwkb = bwmb * 1024.0
     
     '''
     gigabytes needed based upon bandwidth needs
     '''
-    basic_gigabytes_by_bw = bwkb / basic_bw_per_gb
-    if basic_gigabytes_by_bw < gigabytes:
-        basic_cost = gigabytes * basic_cost_per_gb
-    else:
-        basic_cost = basic_gigabytes_by_bw * basic_cost_per_gb
-
     standard_gigabytes_by_bw = bwkb / standard_bw_per_gb
-    if standard_gigabytes_by_bw  < gigabytes:
+    if standard_gigabytes_by_bw < gigabytes:
         standard_cost = gigabytes * standard_cost_per_gb
     else:
         standard_cost = standard_gigabytes_by_bw * standard_cost_per_gb
 
-    extreme_gigabytes_by_bw = bwkb / extreme_bw_per_gb
-    if extreme_gigabytes_by_bw < gigabytes:
-        extreme_cost = gigabytes * extreme_cost_per_gb
+    premium_gigabytes_by_bw = bwkb / premium_bw_per_gb
+    if premium_gigabytes_by_bw  < gigabytes:
+        premium_cost = gigabytes * premium_cost_per_gb
     else:
-        extreme_cost = extreme_gigabytes_by_bw * extreme_cost_per_gb
+        premium_cost = premium_gigabytes_by_bw * premium_cost_per_gb
+
+    ultra_gigabytes_by_bw = bwkb / ultra_bw_per_gb
+    if ultra_gigabytes_by_bw < gigabytes:
+        ultra_cost = gigabytes * ultra_cost_per_gb
+    else:
+        ultra_cost = ultra_gigabytes_by_bw * ultra_cost_per_gb
 
     '''
     calculate right service level and gigabytes based upon cost
     '''
-    cost_hash = {'basic':basic_cost,'standard':standard_cost,'extreme':extreme_cost}
-    capacity_hash = {'basic':basic_gigabytes_by_bw,'standard':standard_gigabytes_by_bw,'extreme':extreme_gigabytes_by_bw}
-    bw_hash = {'basic':basic_bw_per_gb,'standard':standard_bw_per_gb,'extreme':extreme_bw_per_gb}
+    cost_hash = {'standard':standard_cost,'premium':premium_cost,'ultra':ultra_cost}
+    capacity_hash = {'standard':standard_gigabytes_by_bw,'premium':premium_gigabytes_by_bw,'ultra':ultra_gigabytes_by_bw}
+    bw_hash = {'standard':standard_bw_per_gb,'premium':premium_bw_per_gb,'ultra':ultra_bw_per_gb}
     lowest_price = min(cost_hash.values())
+    print('lowest_price:%s,Cheapest_Service_level:%s'%(cost_hash,lowest_price))
     for key in cost_hash.keys():
         if cost_hash[key] == lowest_price:
             servicelevel = key
             if capacity_hash[key] < gigabytes:
                 gigabytes = int(math.ceil(gigabytes))
-                bandwidthKB = int(math.ceil(gigabytes)) * bw_hash[servicelevel] 
+                bandwidthKiB = int(math.ceil(gigabytes)) * bw_hash[servicelevel] 
             else:
                 gigabytes =  int(math.ceil(capacity_hash[key]))
-                bandwidthKB =  int(math.ceil(capacity_hash[key])) * bw_hash[servicelevel]
+                bandwidthKiB =  int(math.ceil(capacity_hash[key])) * bw_hash[servicelevel]
    
             '''
-            convert from Bytes to GB 
+            convert from Bytes to GiB 
             '''
-            gigabytes *= 1000000000
-            bandwidthMB = int(bandwidthKB / 1000)
+            gigabytes *= 2**30
+            bandwidthMiB = int(bandwidthKiB / 1024)
             break
 
-    return servicelevel, gigabytes, bandwidthMB
+    return servicelevel, gigabytes, bandwidthMiB, lowest_price
 
 '''
 Calculate the bandwidth based upon passed in service level and quota
@@ -283,29 +235,21 @@ Calculate the bandwidth based upon passed in service level and quota
 def bandwidth_calculator(servicelevel = None, quotaInBytes = None):
     servicelevel_and_quota_hash = quota_and_servicelevel_parser()
     '''
-    gigabytes converted from Bytes to KB
+    gigabytes converted from Bytes to KiB
     '''
-    #quotaInBytes *= 1000000000
+    #quotaInBytes *= 2**30
     if servicelevel in servicelevel_and_quota_hash['bandwidth'].keys():
-        capacityGB = quotaInBytes / 1000000000
-        bandwidthMB = (capacityGB * servicelevel_and_quota_hash['bandwidth'][servicelevel]) / 1000
+        capacityGiB = quotaInBytes / 2**30
+        bandwidthMiB = (capacityGiB * servicelevel_and_quota_hash['bandwidth'][servicelevel]) / 1024
     else:
-        bandwidthMB = None
-        capacityGB = None
-    return bandwidthMB, capacityGB
+        bandwidthMiB = None
+        capacityGiB = None
+    return bandwidthMiB, capacityGiB
 
 def volCreate_error_message():
     print('\nThe following volCreate flags are required:\
-           \n\t--name | -n X\t\t\t\t#Name used for volume and export path\
-           \n\t--gigabytes | -g [0 < X <= 100,000]\t#Allocated volume capacity in Gigabyte\
-           \n\t--bandwidth | -b [0 <= X <= 4500]\t#Requested maximum volume bandwidth in Megabytes\
-           \n\t--cidr | -c 0.0.0.0/0\t\t\t#Network with acess to exported volume')
-    print('\nThe following flags are optional:\
-           \n\t--count | -C [ 1 <= X]\t\t\t#If specified, X volumes will be created,\
-           \n\t\t\t\t\t\t#Curent count will be appended to each volume name\
-           \n\t\t\t\t\t\t#The artifacts of the required flags will be applied to each volume')
-    print('\t--label | -l\t\t\t\t#Additional metadata for the volume(s)')
-    print('\t--preview\t\t\t\t#results is a simulated rather than actual volume creation')
+           \n\t--gigabytes | -g [0 < X <= 102,400]\t#Allocated volume capacity in Gigabyte\
+           \n\t--bandwidth | -b [0 <= X <= 4500]\t#Requested maximum volume bandwidth in Megabytes')
     exit()
 
 
