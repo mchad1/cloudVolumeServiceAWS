@@ -171,11 +171,11 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
     premium_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['premium'])
     ultra_bw_per_gb = float(servicelevel_and_quota_hash['bandwidth']['ultra'])
 
-    '''
+    ''' 
     if bwmb == 0, then the user didn't know the bandwidth, so set to maximum which we've seen is 3800MiB/s. 
     '''
-    if bwmb == 0 or bwmb > 4500:
-        bwmb = 4500 
+    if bwmb == 0 or bwmb > int(servicelevel_and_quota_hash['max_bandwidth']['max']):
+        bwmb =  int(servicelevel_and_quota_hash['max_bandwidth']['max'])
     '''
     convert mb to kb
     '''
@@ -216,15 +216,20 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
             if capacity_hash[key] < gigabytes:
                 gigabytes = int(math.ceil(gigabytes))
                 bandwidthKiB = int(math.ceil(gigabytes)) * bw_hash[servicelevel] 
+                print('capacity_hash[key]:%s, gigabytes:%s, bw_hash[servicelevel]:%s'%(capacity_hash[key],gigabytes,bw_hash[servicelevel]))
             else:
                 gigabytes =  int(math.ceil(capacity_hash[key]))
                 bandwidthKiB =  int(math.ceil(capacity_hash[key])) * bw_hash[servicelevel]
+                print('ELSE capacity_hash[key]:%s,bw_hash[servicelevel]:%s'%(capacity_hash[key],bw_hash[servicelevel]))
    
             '''
             convert from Bytes to GiB 
             '''
             gigabytes *= 2**30
             bandwidthMiB = int(bandwidthKiB / 1024)
+            if bandwidthMiB > int(servicelevel_and_quota_hash['max_bandwidth'][servicelevel]):
+                bandwidthMiB = int(servicelevel_and_quota_hash['max_bandwidth'][servicelevel])
+            print('BWMB:%s, BWKB:%s bandwidthMIB:%s'%(bwmb,bwkb,bandwidthMiB))
             break
 
     return servicelevel, gigabytes, bandwidthMiB, lowest_price
