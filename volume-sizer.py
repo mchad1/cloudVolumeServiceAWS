@@ -5,11 +5,7 @@ import json
 import math
 import os
 import requests
-import userio
-import orautils
-from time import sleep
 from  datetime import datetime
-from os.path import expanduser
 
 def quota_and_servicelevel_parser():
     if os.path.exists('servicelevel_and_quotas.json'):
@@ -39,10 +35,10 @@ def date_to_epoch(created = None, now = None):
 def command_line():
     parser = argparse.ArgumentParser(prog='cvs-aws.py',description='%(prog)s is used to issue commands to your NetApp Cloud Volumes Service on your behalf.')
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('--volCreate',action='store_const',const=True,)
-    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 100 and 102,400. Supports volCreate')
+    group.add_argument('--volSize',action='store_const',const=True,)
+    parser.add_argument('--gigabytes','-g',type=str,help='Volume gigabytes in Gigabytes, value accepted between 100 and 102,400. Supports volSize')
     parser.add_argument('--bandwidth','-b',type=str,help='Volume bandwidth requirements in Megabytes per second. If unknown enter 0 and maximum\
-                                                     bandwidth is assigned. Supports volCreate')
+                                                     bandwidth is assigned. Supports volSize')
     arg = vars(parser.parse_args())
 
     #Preview sets of the automation to simulate the command and return simulated results, if not entered assume False
@@ -58,15 +54,15 @@ def command_line():
         gigabytes = None
 
 
-    if  arg['volCreate']:
-        volCreate( bandwidth = bandwidth, gigabytes = gigabytes)
+    if  arg['volSize']:
+        volSize( bandwidth = bandwidth, gigabytes = gigabytes)
         
         ##########################################################
         #                      Volume Commands
         ##########################################################
         
 
-def volCreate(
+def volSize(
             bandwidth = None,
             gigabytes = None,
            ):
@@ -92,15 +88,15 @@ def volCreate(
         servicelevel, quotainbytes, bandwidthMiB, cost = servicelevel_and_quota_lookup(bwmb = bandwidth, gigabytes = gigabytes)
  
         if error == False: 
-            volume_creation(bandwidth = bandwidthMiB,
+            volume_sizing(bandwidth = bandwidthMiB,
                             cost = cost,
                             quota_in_bytes = quotainbytes,
                             servicelevel = servicelevel
                             )
         else:
-            print('The volCreate command failed, see the following json output for the cause:\n')
+            print('The volSize command failed, see the following json output for the cause:\n')
             pretty_hash(error_value)
-            volCreate_error_message()
+            volSize_error_message()
     else:
         print('Error Bandwidth: %s, GiB: %s'%(bandwidth,gigabytes))
 
@@ -143,10 +139,10 @@ def is_ord(my_string = None, position = None):
 '''
 Issue call to create volume
 '''
-def volume_creation(bandwidth = None,
-                    cost = None,
-                    quota_in_bytes = None,
-                    servicelevel = None):
+def volume_sizing(bandwidth = None,
+                  cost = None,
+                  quota_in_bytes = None,
+                  servicelevel = None):
     print('\n\tserviceLevel:%s ($%s)\
           \n\tallocatedCapacityGiB:%s\
           \n\tavailableBandwidthMiB:%s'
@@ -216,12 +212,9 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
             if capacity_hash[key] < gigabytes:
                 gigabytes = int(math.ceil(gigabytes))
                 bandwidthKiB = int(math.ceil(gigabytes)) * bw_hash[servicelevel] 
-                print('capacity_hash[key]:%s, gigabytes:%s, bw_hash[servicelevel]:%s'%(capacity_hash[key],gigabytes,bw_hash[servicelevel]))
             else:
                 gigabytes =  int(math.ceil(capacity_hash[key]))
                 bandwidthKiB =  int(math.ceil(capacity_hash[key])) * bw_hash[servicelevel]
-                print('ELSE capacity_hash[key]:%s,bw_hash[servicelevel]:%s'%(capacity_hash[key],bw_hash[servicelevel]))
-   
             '''
             convert from Bytes to GiB 
             '''
@@ -229,7 +222,6 @@ def servicelevel_and_quota_lookup(bwmb = None, gigabytes = None):
             bandwidthMiB = int(bandwidthKiB / 1024)
             if bandwidthMiB > int(servicelevel_and_quota_hash['max_bandwidth'][servicelevel]):
                 bandwidthMiB = int(servicelevel_and_quota_hash['max_bandwidth'][servicelevel])
-            print('BWMB:%s, BWKB:%s bandwidthMIB:%s'%(bwmb,bwkb,bandwidthMiB))
             break
 
     return servicelevel, gigabytes, bandwidthMiB, lowest_price
@@ -251,8 +243,8 @@ def bandwidth_calculator(servicelevel = None, quotaInBytes = None):
         capacityGiB = None
     return bandwidthMiB, capacityGiB
 
-def volCreate_error_message():
-    print('\nThe following volCreate flags are required:\
+def volSize_error_message():
+    print('\nThe following volSize flags are required:\
            \n\t--gigabytes | -g [0 < X <= 102,400]\t#Allocated volume capacity in Gigabyte\
            \n\t--bandwidth | -b [0 <= X <= 4500]\t#Requested maximum volume bandwidth in Megabytes')
     exit()
